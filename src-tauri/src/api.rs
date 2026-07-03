@@ -66,10 +66,7 @@ impl ApiClient {
         city_id: &str,
         tz: &str,
     ) -> Result<JadwalResponse, reqwest::Error> {
-        let url = format!(
-            "{}/sholat/jadwal/{}/today?tz={}",
-            MYQURAN_BASE, city_id, tz
-        );
+        let url = format!("{}/sholat/jadwal/{}/today?tz={}", MYQURAN_BASE, city_id, tz);
         let resp: JadwalResponse = self.client.get(url).send().await?.json().await?;
         Ok(resp)
     }

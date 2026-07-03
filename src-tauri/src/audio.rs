@@ -26,8 +26,8 @@ pub struct AudioPlayer {
 
 impl AudioPlayer {
     pub fn new() -> Self {
-        let (stream, handle) = OutputStream::try_default()
-            .expect("failed to open default audio output");
+        let (stream, handle) =
+            OutputStream::try_default().expect("failed to open default audio output");
         AudioPlayer {
             _stream: stream,
             handle,
@@ -71,8 +71,8 @@ impl AudioPlayer {
             return Ok(());
         }
         let file = File::open(path).map_err(|e| format!("audio file open: {}", e))?;
-        let source = Decoder::new(BufReader::new(file))
-            .map_err(|e| format!("audio decode: {}", e))?;
+        let source =
+            Decoder::new(BufReader::new(file)).map_err(|e| format!("audio decode: {}", e))?;
 
         let sink = Sink::try_new(&self.handle).map_err(|e| format!("sink: {}", e))?;
         let vol = *self.volume.lock().unwrap();

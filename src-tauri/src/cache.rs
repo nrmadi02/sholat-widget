@@ -119,7 +119,11 @@ mod tests {
     #[test]
     fn test_reminded_key_format() {
         let date = NaiveDate::from_ymd_opt(2026, 6, 23).unwrap();
-        let key = format!("{}:{}", date.format("%Y-%m-%d"), PrayerKind::Maghrib.label());
+        let key = format!(
+            "{}:{}",
+            date.format("%Y-%m-%d"),
+            PrayerKind::Maghrib.label()
+        );
         assert_eq!(key, "2026-06-23:Maghrib");
     }
 
