@@ -3,6 +3,7 @@ mod city;
 mod config;
 mod location;
 pub mod models;
+mod time;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
