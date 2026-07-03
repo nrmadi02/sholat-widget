@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { useLiveClock, useTauriCommand } from "../hooks/useTauriCommand";
+import { Settings } from "./Settings";
+import { QiblaCompass } from "./QiblaCompass";
 
 interface AppConfig {
   onboarding_done: boolean;
@@ -6,6 +9,7 @@ interface AppConfig {
   city_id: string;
   city_name: string;
   timezone: string;
+  last_lat_long: [number, number] | null;
   volume: number;
   muted: boolean;
   reminder_offset_minutes: number;
@@ -35,6 +39,11 @@ interface PrayerSchedule {
 export function Popup() {
   const clock = useLiveClock();
   const { data: config } = useTauriCommand<AppConfig>("get_config");
+  const [showSettings, setShowSettings] = useState(false);
+
+  if (showSettings && config) {
+    return <Settings config={config} onClose={() => setShowSettings(false)} />;
+  }
 
   return (
     <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
@@ -49,6 +58,10 @@ export function Popup() {
           <PrayerRow key={p.key} label={p.label} time="--:--" />
         ))}
       </div>
+      {config && <QiblaCompass config={config} />}
+      <button onClick={() => setShowSettings(true)} style={{ marginTop: 12 }}>
+        ⚙️ Settings
+      </button>
     </div>
   );
 }
