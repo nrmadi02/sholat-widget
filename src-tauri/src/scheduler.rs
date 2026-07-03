@@ -1,9 +1,9 @@
 use crate::audio::AudioPlayer;
 use crate::cache::CacheStore;
-use crate::config::{load_config, Config};
+use crate::config::load_config;
 use crate::models::{JadwalEntry, PrayerKind};
 use crate::time::{is_in_reminder_window, TimeService};
-use chrono::{Datelike, NaiveDate};
+use chrono::NaiveDate;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
@@ -30,10 +30,10 @@ pub fn parse_hhmm(s: &str) -> Option<(u32, u32)> {
 
 pub async fn run_scheduler(
     time_service: Arc<TimeService>,
-    audio: Arc<AudioPlayer>,
     cache: Arc<CacheStore>,
     on_remind: Arc<dyn Fn(PrayerKind) + Send + Sync>,
 ) {
+    let audio = AudioPlayer::new();
     let mut last_date: Option<NaiveDate> = None;
 
     loop {

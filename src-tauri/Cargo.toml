@@ -29,5 +29,6 @@ rsntp = { version = "4", features = ["async", "chrono"] }
 dirs = "5"
 uuid = { version = "1", features = ["v4"] }
 log = "0.4"
-tauri = { version = "2.10.3", features = [] }
+tauri = { version = "2.10.3", features = ["tray-icon"] }
+tauri-plugin-autostart = "2"
 tauri-plugin-log = "2"
