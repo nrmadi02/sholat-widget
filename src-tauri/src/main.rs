@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-  sholat_widget_lib::run();
+  sholat_widget::run();
 }
