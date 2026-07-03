@@ -1,5 +1,6 @@
+mod api;
 mod config;
-mod models;
+pub mod models;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
