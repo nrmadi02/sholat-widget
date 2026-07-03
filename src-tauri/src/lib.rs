@@ -1,8 +1,12 @@
 mod api;
+mod audio;
+mod cache;
 mod city;
 mod config;
 mod location;
 pub mod models;
+mod qibla;
+mod scheduler;
 mod time;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
