@@ -1,6 +1,7 @@
 mod api;
 mod city;
 mod config;
+mod location;
 pub mod models;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
