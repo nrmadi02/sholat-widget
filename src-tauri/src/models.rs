@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct City {
     pub id: String,
     #[serde(rename = "lokasi")]
@@ -46,7 +46,7 @@ impl PrayerKind {
 }
 
 /// Raw jadwal entry as returned inside data.jadwal["YYYY-MM-DD"]
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct JadwalEntry {
     pub tanggal: String,
     pub imsak: String,
