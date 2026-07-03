@@ -4,6 +4,7 @@ mod cache;
 mod city;
 mod config;
 mod location;
+mod logging;
 pub mod models;
 mod qibla;
 mod scheduler;
@@ -69,6 +70,10 @@ pub fn run() {
             Some(vec![]),
         ))
         .setup(|app| {
+            let logger = std::sync::Arc::new(logging::Logger::new());
+            logger.cleanup_old_logs();
+            logger.info("Sholat Widget starting up");
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
