@@ -1,4 +1,21 @@
+use crate::cache::CacheStore;
 use crate::models::City;
+
+/// Embedded top cities used when the on-disk city cache is empty.
+pub fn load_fallback_cities() -> Vec<City> {
+    let json = include_str!("../assets/cities_fallback.json");
+    serde_json::from_str(json).unwrap_or_default()
+}
+
+/// Prefer cached cities; fall back to the bundled list for auto-detect matching.
+pub fn cities_for_matching(cache: &CacheStore) -> Vec<City> {
+    let cached = cache.load_cities();
+    if cached.is_empty() {
+        load_fallback_cities()
+    } else {
+        cached
+    }
+}
 
 /// Normalize a city name for fuzzy comparison:
 /// uppercase, trim, remove "KOTA "/"KAB. " prefix, collapse spaces.
@@ -99,5 +116,12 @@ mod tests {
     fn test_prov_to_timezone_wit() {
         assert_eq!(prov_to_timezone("PAPUA"), "Asia/Jayapura");
         assert_eq!(prov_to_timezone("MALUKU UTARA"), "Asia/Jayapura");
+    }
+
+    #[test]
+    fn test_load_fallback_cities_not_empty() {
+        let cities = load_fallback_cities();
+        assert!(!cities.is_empty());
+        assert!(!cities[0].id.is_empty());
     }
 }

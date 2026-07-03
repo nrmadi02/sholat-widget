@@ -13,7 +13,8 @@ mod time;
 
 use audio::AudioPlayer;
 use cache::CacheStore;
-use config::{load_config, save_config, Config};
+use config::{load_config, save_config, Config, LocationMode};
+use tauri::path::BaseDirectory;
 use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -31,10 +32,20 @@ fn get_config() -> Config {
 async fn save_settings(config: Config) -> Result<(), String> {
     let old = load_config();
     save_config(&config).map_err(|e| e.to_string())?;
-    if old.city_id != config.city_id {
-        let cache = CacheStore::new();
-        schedule::refresh_schedule(&cache).await?;
+
+    let needs_location_sync = old.location_mode != config.location_mode
+        || old.city_id != config.city_id
+        || config.location_mode == LocationMode::Auto;
+
+    if needs_location_sync {
+        location::sync_config_location().await?;
     }
+
+    let updated = load_config();
+    if old.city_id != updated.city_id || old.timezone != updated.timezone {
+        schedule::refresh_schedule(&CacheStore::new()).await?;
+    }
+
     Ok(())
 }
 
@@ -55,8 +66,8 @@ async fn complete_onboarding(config: Config) -> Result<(), String> {
     let mut cfg = config;
     cfg.onboarding_done = true;
     save_config(&cfg).map_err(|e| e.to_string())?;
-    let cache = CacheStore::new();
-    schedule::refresh_schedule(&cache).await?;
+    location::sync_config_location().await?;
+    schedule::refresh_schedule(&CacheStore::new()).await?;
     Ok(())
 }
 
@@ -76,8 +87,7 @@ async fn get_today_schedule() -> Result<Option<models::JadwalEntry>, String> {
 
 #[tauri::command]
 fn test_sound() -> Result<(), String> {
-    let player = AudioPlayer::new();
-    player.play_bedug()
+    AudioPlayer::from_config().play_bedug()
 }
 
 #[tauri::command]
@@ -141,6 +151,15 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            let bedug = app
+                .path()
+                .resolve("sounds/bedug.mp3", BaseDirectory::Resource)
+                .unwrap_or_else(|_| {
+                    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                        .join("assets/sounds/bedug.mp3")
+                });
+            audio::set_bedug_path(bedug);
+
             let cfg = load_config();
             if cfg.auto_launch {
                 let _ = app.autolaunch().enable();
@@ -149,15 +168,26 @@ pub fn run() {
             let time_service = Arc::new(time::TimeService::new(&cfg.timezone));
             let cache = Arc::new(CacheStore::new());
 
-            let cache_boot = cache.clone();
-            tauri::async_runtime::spawn(async move {
-                let _ = schedule::refresh_schedule(&cache_boot).await;
-            });
+            if cfg.onboarding_done {
+                tauri::async_runtime::spawn(async move {
+                    let _ = location::sync_config_location().await;
+                    let _ = schedule::refresh_schedule(&CacheStore::new()).await;
+                });
+            } else {
+                let cache_boot = cache.clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = schedule::refresh_schedule(&cache_boot).await;
+                });
+            }
 
             let ts_clone = time_service.clone();
             let app_handle = app.handle().clone();
             let on_remind = Arc::new(move |kind: models::PrayerKind| {
                 let _ = app_handle.emit("prayer-reminder", kind.label());
+                if let Some(win) = app_handle.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
             });
 
             std::thread::spawn(move || {

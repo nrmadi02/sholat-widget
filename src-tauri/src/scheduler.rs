@@ -38,6 +38,10 @@ pub async fn run_scheduler(
     let mut last_date: Option<NaiveDate> = None;
 
     loop {
+        let cfg = load_config();
+        time_service.update_timezone(&cfg.timezone);
+        audio.sync_from_config();
+
         let now = time_service.now_local();
         let today = now.date_naive();
         let today_key = today.format("%Y-%m-%d").to_string();
@@ -51,7 +55,6 @@ pub async fn run_scheduler(
         }
 
         if let Some(entry) = cache.get_schedule_for_date(&today_key) {
-            let cfg = load_config();
             let offset = cfg.reminder_offset_minutes;
 
             for (kind, time_str) in extract_prayers(&entry) {
@@ -102,7 +105,10 @@ mod tests {
     fn test_extract_prayers_values() {
         let entry = sample_entry();
         let prayers = extract_prayers(&entry);
-        let subuh = prayers.iter().find(|(k, _)| *k == PrayerKind::Subuh).unwrap();
+        let subuh = prayers
+            .iter()
+            .find(|(k, _)| *k == PrayerKind::Subuh)
+            .unwrap();
         assert_eq!(subuh.1, "04:23");
     }
 
