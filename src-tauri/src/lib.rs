@@ -1,4 +1,5 @@
 mod api;
+mod city;
 mod config;
 pub mod models;
 
