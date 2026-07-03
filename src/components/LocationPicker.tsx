@@ -1,29 +1,20 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import type { AppConfig } from "../types/config";
 
 interface City {
   id: string;
   lokasi: string;
 }
 
-interface AppConfig {
-  onboarding_done: boolean;
-  location_mode: "Auto" | "ManualCity";
-  city_id: string;
-  city_name: string;
-  timezone: string;
-  volume: number;
-  muted: boolean;
-  reminder_offset_minutes: number;
-  auto_launch: boolean;
-}
-
 export function LocationPicker({
   config,
   onSaved,
+  onError,
 }: {
   config: AppConfig;
   onSaved: (cfg: AppConfig) => void;
+  onError?: (msg: string | null) => void;
 }) {
   const [mode, setMode] = useState<"Auto" | "ManualCity">(config.location_mode);
   const [query, setQuery] = useState("");
@@ -32,6 +23,7 @@ export function LocationPicker({
     id: config.city_id,
     lokasi: config.city_name,
   });
+  const [saving, setSaving] = useState(false);
 
   const search = async (q: string) => {
     setQuery(q);
@@ -45,14 +37,22 @@ export function LocationPicker({
   };
 
   const save = async () => {
+    setSaving(true);
+    onError?.(null);
     const updated: AppConfig = {
       ...config,
       location_mode: mode,
       city_id: selected?.id ?? config.city_id,
       city_name: selected?.lokasi ?? config.city_name,
     };
-    await invoke("save_settings", { config: updated });
-    onSaved(updated);
+    try {
+      const saved = await invoke<AppConfig>("save_settings", { config: updated });
+      onSaved(saved);
+    } catch (err) {
+      onError?.(String(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -97,8 +97,8 @@ export function LocationPicker({
           ))}
         </div>
       )}
-      <button onClick={save} style={{ marginTop: 8 }}>
-        Simpan Lokasi
+      <button onClick={save} style={{ marginTop: 8 }} disabled={saving}>
+        {saving ? "Menyimpan..." : "Simpan Lokasi"}
       </button>
     </div>
   );

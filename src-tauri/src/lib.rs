@@ -13,7 +13,7 @@ mod time;
 
 use audio::AudioPlayer;
 use cache::CacheStore;
-use config::{load_config, save_config, Config, LocationMode};
+use config::{load_config, save_config, Config};
 use tauri::path::BaseDirectory;
 use std::sync::Arc;
 use tauri::{
@@ -29,24 +29,36 @@ fn get_config() -> Config {
 }
 
 #[tauri::command]
-async fn save_settings(config: Config) -> Result<(), String> {
+async fn save_settings(config: Config, app: tauri::AppHandle) -> Result<Config, String> {
     let old = load_config();
     save_config(&config).map_err(|e| e.to_string())?;
 
-    let needs_location_sync = old.location_mode != config.location_mode
+    if config.auto_launch != old.auto_launch {
+        let autolaunch = app.autolaunch();
+        if config.auto_launch {
+            let _ = autolaunch.enable();
+        } else {
+            let _ = autolaunch.disable();
+        }
+    }
+
+    let location_changed = old.location_mode != config.location_mode
         || old.city_id != config.city_id
-        || config.location_mode == LocationMode::Auto;
+        || old.city_name != config.city_name;
 
-    if needs_location_sync {
-        location::sync_config_location().await?;
+    if location_changed {
+        if let Err(e) = location::sync_config_location().await {
+            log::warn!("location sync failed: {e}");
+        }
+        let updated = load_config();
+        if old.city_id != updated.city_id || old.timezone != updated.timezone {
+            if let Err(e) = schedule::refresh_schedule(&CacheStore::new()).await {
+                log::warn!("schedule refresh failed: {e}");
+            }
+        }
     }
 
-    let updated = load_config();
-    if old.city_id != updated.city_id || old.timezone != updated.timezone {
-        schedule::refresh_schedule(&CacheStore::new()).await?;
-    }
-
-    Ok(())
+    Ok(load_config())
 }
 
 #[tauri::command]
@@ -62,13 +74,17 @@ fn get_qibla_bearing(lat: f64, lon: f64) -> f64 {
 }
 
 #[tauri::command]
-async fn complete_onboarding(config: Config) -> Result<(), String> {
+async fn complete_onboarding(config: Config) -> Result<Config, String> {
     let mut cfg = config;
     cfg.onboarding_done = true;
     save_config(&cfg).map_err(|e| e.to_string())?;
-    location::sync_config_location().await?;
-    schedule::refresh_schedule(&CacheStore::new()).await?;
-    Ok(())
+    if let Err(e) = location::sync_config_location().await {
+        log::warn!("location sync failed during onboarding: {e}");
+    }
+    if let Err(e) = schedule::refresh_schedule(&CacheStore::new()).await {
+        log::warn!("schedule refresh failed during onboarding: {e}");
+    }
+    Ok(load_config())
 }
 
 #[tauri::command]

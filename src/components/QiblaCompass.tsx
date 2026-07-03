@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-
-interface AppConfig {
-  last_lat_long: [number, number] | null;
-}
+import type { AppConfig } from "../types/config";
 
 export function QiblaCompass({ config }: { config: AppConfig }) {
   const [bearing, setBearing] = useState<number | null>(null);

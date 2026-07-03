@@ -15,6 +15,7 @@ pub struct Config {
     pub city_id: String,
     pub city_name: String,
     pub timezone: String,
+    #[serde(default)]
     pub last_lat_long: Option<(f64, f64)>,
     pub volume: f32,
     pub muted: bool,
@@ -92,5 +93,23 @@ mod tests {
         let back: Config = serde_json::from_str(&json).unwrap();
         assert_eq!(cfg.onboarding_done, back.onboarding_done);
         assert_eq!(cfg.city_id, back.city_id);
+    }
+
+    #[test]
+    fn test_deserialize_frontend_payload_without_coords() {
+        let json = r#"{
+            "onboarding_done": true,
+            "location_mode": "Auto",
+            "city_id": "eda80a3d5b344bc40f3bc04f65b7a357",
+            "city_name": "JAKARTA",
+            "timezone": "Asia/Jakarta",
+            "volume": 0.5,
+            "muted": false,
+            "reminder_offset_minutes": -5,
+            "auto_launch": true
+        }"#;
+        let cfg: Config = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.volume, 0.5);
+        assert!(cfg.last_lat_long.is_none());
     }
 }

@@ -1,18 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { LocationPicker } from "./LocationPicker";
-
-interface AppConfig {
-  onboarding_done: boolean;
-  location_mode: "Auto" | "ManualCity";
-  city_id: string;
-  city_name: string;
-  timezone: string;
-  volume: number;
-  muted: boolean;
-  reminder_offset_minutes: number;
-  auto_launch: boolean;
-}
+import type { AppConfig } from "../types/config";
 
 export function Settings({
   config,
@@ -22,30 +11,35 @@ export function Settings({
   onClose: () => void;
 }) {
   const [cfg, setCfg] = useState<AppConfig>(config);
+  const [error, setError] = useState<string | null>(null);
+
+  const persist = async (updated: AppConfig) => {
+    try {
+      const saved = await invoke<AppConfig>("save_settings", { config: updated });
+      setCfg(saved);
+      setError(null);
+    } catch (err) {
+      setError(String(err));
+    }
+  };
 
   const updateVolume = async (v: number) => {
-    const updated = { ...cfg, volume: v };
-    setCfg(updated);
-    await invoke("save_settings", { config: updated });
+    await persist({ ...cfg, volume: v });
   };
 
   const toggleMute = async () => {
-    const updated = { ...cfg, muted: !cfg.muted };
-    setCfg(updated);
-    await invoke("save_settings", { config: updated });
+    await persist({ ...cfg, muted: !cfg.muted });
   };
 
   const toggleAutoLaunch = async () => {
-    const updated = { ...cfg, auto_launch: !cfg.auto_launch };
-    setCfg(updated);
-    await invoke("save_settings", { config: updated });
+    await persist({ ...cfg, auto_launch: !cfg.auto_launch });
   };
 
   return (
     <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
       <h3>⚙️ Settings</h3>
 
-      <LocationPicker config={cfg} onSaved={setCfg} />
+      <LocationPicker config={cfg} onSaved={(saved) => setCfg(saved)} onError={setError} />
 
       <div style={{ marginBottom: 16 }}>
         <label>Volume: {Math.round(cfg.volume * 100)}%</label>
@@ -73,6 +67,10 @@ export function Settings({
           Mulai saat komputer dinyalakan
         </label>
       </div>
+
+      {error && (
+        <p style={{ color: "#b42318", fontSize: 12, marginBottom: 8 }}>{error}</p>
+      )}
 
       <button onClick={onClose}>Tutup</button>
     </div>
