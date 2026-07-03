@@ -16,6 +16,7 @@ pub struct RemindedFlags {
     pub reminded: HashSet<String>,
 }
 
+#[derive(Clone)]
 pub struct CacheStore {
     dir: PathBuf,
 }
@@ -50,10 +51,14 @@ impl CacheStore {
         Ok(())
     }
 
-    pub fn get_today_schedule(&self) -> Option<JadwalEntry> {
+    pub fn get_schedule_for_date(&self, date: &str) -> Option<JadwalEntry> {
         let cache = self.load_schedule()?;
+        cache.schedules.get(date).cloned()
+    }
+
+    pub fn get_today_schedule(&self) -> Option<JadwalEntry> {
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-        cache.schedules.get(&today).cloned()
+        self.get_schedule_for_date(&today)
     }
 
     pub fn load_reminded(&self) -> RemindedFlags {

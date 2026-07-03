@@ -7,6 +7,7 @@ mod location;
 mod logging;
 pub mod models;
 mod qibla;
+mod schedule;
 mod scheduler;
 mod time;
 
@@ -27,8 +28,14 @@ fn get_config() -> Config {
 }
 
 #[tauri::command]
-fn save_settings(config: Config) -> Result<(), String> {
-    save_config(&config).map_err(|e| e.to_string())
+async fn save_settings(config: Config) -> Result<(), String> {
+    let old = load_config();
+    save_config(&config).map_err(|e| e.to_string())?;
+    if old.city_id != config.city_id {
+        let cache = CacheStore::new();
+        schedule::refresh_schedule(&cache).await?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -44,10 +51,27 @@ fn get_qibla_bearing(lat: f64, lon: f64) -> f64 {
 }
 
 #[tauri::command]
-fn complete_onboarding(config: Config) -> Result<(), String> {
+async fn complete_onboarding(config: Config) -> Result<(), String> {
     let mut cfg = config;
     cfg.onboarding_done = true;
-    save_config(&cfg).map_err(|e| e.to_string())
+    save_config(&cfg).map_err(|e| e.to_string())?;
+    let cache = CacheStore::new();
+    schedule::refresh_schedule(&cache).await?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_today_schedule() -> Result<Option<models::JadwalEntry>, String> {
+    let cfg = load_config();
+    let ts = time::TimeService::new(&cfg.timezone);
+    let today = ts.now_local().format("%Y-%m-%d").to_string();
+    let cache = CacheStore::new();
+
+    if schedule::needs_refresh(&cache, &cfg.city_id, &today) {
+        schedule::refresh_schedule(&cache).await?;
+    }
+
+    Ok(cache.get_schedule_for_date(&today))
 }
 
 #[tauri::command]
@@ -125,6 +149,11 @@ pub fn run() {
             let time_service = Arc::new(time::TimeService::new(&cfg.timezone));
             let cache = Arc::new(CacheStore::new());
 
+            let cache_boot = cache.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = schedule::refresh_schedule(&cache_boot).await;
+            });
+
             let ts_clone = time_service.clone();
             let app_handle = app.handle().clone();
             let on_remind = Arc::new(move |kind: models::PrayerKind| {
@@ -152,6 +181,7 @@ pub fn run() {
             save_settings,
             get_current_time,
             get_qibla_bearing,
+            get_today_schedule,
             complete_onboarding,
             test_sound,
             search_cities,

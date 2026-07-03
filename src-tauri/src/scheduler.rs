@@ -2,6 +2,7 @@ use crate::audio::AudioPlayer;
 use crate::cache::CacheStore;
 use crate::config::load_config;
 use crate::models::{JadwalEntry, PrayerKind};
+use crate::schedule;
 use crate::time::{is_in_reminder_window, TimeService};
 use chrono::NaiveDate;
 use std::sync::Arc;
@@ -39,13 +40,17 @@ pub async fn run_scheduler(
     loop {
         let now = time_service.now_local();
         let today = now.date_naive();
+        let today_key = today.format("%Y-%m-%d").to_string();
 
         if last_date != Some(today) {
             let _ = cache.cleanup_old_flags();
             last_date = Some(today);
+            let _ = schedule::refresh_schedule(&cache).await;
+        } else if schedule::needs_refresh(&cache, &load_config().city_id, &today_key) {
+            let _ = schedule::refresh_schedule(&cache).await;
         }
 
-        if let Some(entry) = cache.get_today_schedule() {
+        if let Some(entry) = cache.get_schedule_for_date(&today_key) {
             let cfg = load_config();
             let offset = cfg.reminder_offset_minutes;
 
