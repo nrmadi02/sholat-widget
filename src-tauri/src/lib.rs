@@ -55,6 +55,12 @@ fn test_sound() -> Result<(), String> {
     player.play_bedug()
 }
 
+#[tauri::command]
+async fn search_cities(query: String) -> Result<Vec<models::City>, String> {
+    let api = api::ApiClient::new();
+    api.search_cities(&query).await.map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -143,6 +149,7 @@ pub fn run() {
             get_qibla_bearing,
             complete_onboarding,
             test_sound,
+            search_cities,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
