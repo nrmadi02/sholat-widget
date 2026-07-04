@@ -259,7 +259,7 @@ export function TrayWindow() {
 
               <p className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-emerald-600">
                 <CheckCircle2 className="size-3.5 shrink-0" />
-                Akan ada pengingat + bedug
+                Akan ada pengingat + azan
               </p>
             </>
           ) : (

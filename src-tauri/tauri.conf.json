@@ -74,7 +74,7 @@
     "createUpdaterArtifacts": true,
     "targets": "all",
     "resources": {
-      "assets/sounds/bedug.mp3": "sounds/bedug.mp3",
+      "assets/sounds/azan.mp3": "sounds/azan.mp3",
       "assets/cities_fallback.json": "cities_fallback.json"
     },
     "icon": [

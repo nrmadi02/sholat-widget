@@ -178,16 +178,22 @@ async fn get_today_schedule() -> Result<Option<models::JadwalEntry>, String> {
 }
 
 #[tauri::command]
+fn get_azan_duration_ms() -> Result<u64, String> {
+    audio::azan_duration_ms()
+}
+
+#[tauri::command]
 fn test_sound(volume: Option<f32>, muted: Option<bool>) -> Result<(), String> {
-    std::thread::spawn(move || {
-        let player = AudioPlayer::new();
-        if volume.is_none() || muted.is_none() {
-            player.sync_from_config();
-        }
-        if let Err(e) = player.play_bedug_blocking(volume, muted) {
-            log::warn!("test_sound gagal: {e}");
-        }
-    });
+    if let Err(e) = audio::start_preview(volume, muted) {
+        log::warn!("test_sound gagal: {e}");
+        return Err(e);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_test_sound() -> Result<(), String> {
+    audio::stop_preview();
     Ok(())
 }
 
@@ -316,14 +322,14 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            let bedug = app
+            let azan = app
                 .path()
-                .resolve("sounds/bedug.mp3", BaseDirectory::Resource)
+                .resolve("sounds/azan.mp3", BaseDirectory::Resource)
                 .unwrap_or_else(|_| {
                     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                        .join("assets/sounds/bedug.mp3")
+                        .join("assets/sounds/azan.mp3")
                 });
-            audio::set_bedug_path(bedug);
+            audio::set_azan_path(azan);
 
             let cfg = load_config();
             if cfg.auto_launch {
@@ -388,7 +394,9 @@ pub fn run() {
             get_current_time,
             get_today_schedule,
             complete_onboarding,
+            get_azan_duration_ms,
             test_sound,
+            stop_test_sound,
             search_cities,
             open_main_window,
             hide_tray_window,

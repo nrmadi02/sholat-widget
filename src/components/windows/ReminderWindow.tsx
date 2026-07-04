@@ -36,7 +36,7 @@ export function ReminderWindow() {
     void invoke("close_reminder_window");
   };
 
-  const playBedug = async () => {
+  const playAzan = async () => {
     setPlaying(true);
     await invoke("test_sound");
     setTimeout(() => setPlaying(false), 3000);
@@ -85,7 +85,7 @@ export function ReminderWindow() {
           <Button
             size="sm"
             className="flex-1 text-xs"
-            onClick={playBedug}
+            onClick={playAzan}
             disabled={playing}
           >
             {playing ? (
@@ -93,7 +93,7 @@ export function ReminderWindow() {
             ) : (
               <Bell className="size-3.5 shrink-0" />
             )}
-            {playing ? "Memainkan..." : "Dengar bedug"}
+            {playing ? "Memainkan..." : "Dengar azan"}
           </Button>
           <Button
             variant="ghost"

@@ -1,20 +1,98 @@
 use crate::config::load_config;
-use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
+use std::sync::mpsc::Sender;
 use std::sync::{Mutex, OnceLock};
+use std::thread;
+use std::time::Duration;
 
-static BEDUG_PATH: OnceLock<PathBuf> = OnceLock::new();
+static AZAN_PATH: OnceLock<PathBuf> = OnceLock::new();
+static PREVIEW_STOP_TX: OnceLock<Mutex<Option<Sender<()>>>> = OnceLock::new();
 
-pub fn set_bedug_path(path: PathBuf) {
-    let _ = BEDUG_PATH.set(path);
+fn preview_stop_tx() -> &'static Mutex<Option<Sender<()>>> {
+    PREVIEW_STOP_TX.get_or_init(|| Mutex::new(None))
 }
 
-pub fn bedug_path() -> PathBuf {
-    BEDUG_PATH.get().cloned().unwrap_or_else(|| {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/sounds/bedug.mp3")
+pub fn set_azan_path(path: PathBuf) {
+    let _ = AZAN_PATH.set(path);
+}
+
+pub fn azan_path() -> PathBuf {
+    AZAN_PATH.get().cloned().unwrap_or_else(|| {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/sounds/azan.mp3")
     })
+}
+
+pub fn stop_preview() {
+    if let Some(tx) = preview_stop_tx().lock().unwrap().take() {
+        let _ = tx.send(());
+    }
+}
+
+pub fn start_preview(volume: Option<f32>, muted: Option<bool>) -> Result<(), String> {
+    stop_preview();
+
+    let cfg = load_config();
+    let is_muted = muted.unwrap_or(cfg.muted);
+    if is_muted {
+        return Ok(());
+    }
+
+    let vol = volume.unwrap_or(cfg.volume).clamp(0.0, 1.0);
+    let path = azan_path();
+    let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+
+    thread::spawn(move || {
+        let Ok((_stream, stream_handle)) = OutputStream::try_default() else {
+            return;
+        };
+        let Ok(sink) = Sink::try_new(&stream_handle) else {
+            return;
+        };
+
+        let Ok(file) = File::open(&path) else {
+            return;
+        };
+        let Ok(source) = Decoder::new(BufReader::new(file)) else {
+            return;
+        };
+
+        sink.set_volume(vol);
+        sink.append(source);
+
+        loop {
+            if stop_rx.try_recv().is_ok() {
+                sink.stop();
+                break;
+            }
+            if sink.empty() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+
+        if let Ok(mut guard) = preview_stop_tx().lock() {
+            if guard.is_some() {
+                *guard = None;
+            }
+        }
+    });
+
+    *preview_stop_tx().lock().unwrap() = Some(stop_tx);
+    Ok(())
+}
+
+pub fn azan_duration_ms() -> Result<u64, String> {
+    let path = azan_path();
+    let file = File::open(&path).map_err(|e| format!("audio file open: {}", e))?;
+    let source =
+        Decoder::new(BufReader::new(file)).map_err(|e| format!("audio decode: {}", e))?;
+    Ok(source
+        .total_duration()
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(3000))
 }
 
 pub struct AudioPlayer {
@@ -72,25 +150,25 @@ impl AudioPlayer {
         self.play_with_options(path, None, None, false)
     }
 
-    pub fn play_bedug(&self) -> Result<(), String> {
-        self.play_with_options(&bedug_path(), None, None, false)
+    pub fn play_azan(&self) -> Result<(), String> {
+        self.play_with_options(&azan_path(), None, None, false)
     }
 
-    pub fn play_bedug_with_options(
+    pub fn play_azan_with_options(
         &self,
         volume: Option<f32>,
         muted: Option<bool>,
     ) -> Result<(), String> {
-        self.play_with_options(&bedug_path(), volume, muted, false)
+        self.play_with_options(&azan_path(), volume, muted, false)
     }
 
     /// Blocks until playback finishes — use from a dedicated thread for test previews.
-    pub fn play_bedug_blocking(
+    pub fn play_azan_blocking(
         &self,
         volume: Option<f32>,
         muted: Option<bool>,
     ) -> Result<(), String> {
-        self.play_with_options(&bedug_path(), volume, muted, true)
+        self.play_with_options(&azan_path(), volume, muted, true)
     }
 
     fn play_with_options(

@@ -38,7 +38,7 @@ export function ReminderDialog({
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button onClick={playSound} className="w-full">
-            Dengar bedug
+            Dengar azan
           </Button>
           <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full">
             Tutup

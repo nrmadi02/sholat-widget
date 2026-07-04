@@ -63,7 +63,7 @@ pub async fn run_scheduler(
                     let in_window = is_in_reminder_window(now, h, m, offset);
 
                     if in_window && !already {
-                        let _ = audio.play_bedug();
+                        let _ = audio.play_azan();
                         on_remind(kind);
                         let _ = cache.mark_reminded(today, kind);
                     }

@@ -76,7 +76,7 @@ export function Settings({
         <DialogHeader className="shrink-0 border-b px-5 pb-4 pt-5">
           <DialogTitle>Pengaturan</DialogTitle>
           <DialogDescription>
-            Lokasi, volume bedug, dan perilaku widget.
+            Lokasi, volume azan, dan perilaku widget.
           </DialogDescription>
         </DialogHeader>
 
@@ -106,7 +106,7 @@ export function Settings({
               <CardContent className="flex flex-col gap-4">
                 <Field>
                   <div className="flex items-center justify-between">
-                    <FieldLabel>Volume bedug</FieldLabel>
+                    <FieldLabel>Volume azan</FieldLabel>
                     <span className="font-mono text-sm tabular-nums text-muted-foreground">
                       {Math.round(cfg.volume * 100)}%
                     </span>
@@ -117,7 +117,7 @@ export function Settings({
                     max={100}
                     step={1}
                     onValueChange={updateVolume}
-                    aria-label="Volume bedug"
+                    aria-label="Volume azan"
                   />
                 </Field>
 
