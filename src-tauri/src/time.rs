@@ -1,7 +1,7 @@
-use chrono::{DateTime, Datelike, NaiveTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, TimeZone, Utc};
 use chrono_tz::Tz;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub struct TimeService {
     ntp_utc: Arc<Mutex<Option<DateTime<Utc>>>>,
@@ -48,13 +48,13 @@ impl TimeService {
         Ok(())
     }
 
-    pub fn is_synced(&self) -> bool {
-        if let Some(last) = *self.last_sync.lock().unwrap() {
-            last.elapsed() < Duration::from_secs(86400)
-        } else {
-            false
-        }
-    }
+    // pub fn is_synced(&self) -> bool {
+    //     if let Some(last) = *self.last_sync.lock().unwrap() {
+    //         last.elapsed() < Duration::from_secs(86400)
+    //     } else {
+    //         false
+    //     }
+    // }
 
     pub fn now_local(&self) -> DateTime<Tz> {
         let os_utc = Utc::now();
@@ -63,13 +63,14 @@ impl TimeService {
         corrected_utc.with_timezone(&tz)
     }
 
-    pub fn is_unverified(&self) -> bool {
-        !self.is_synced()
-    }
+    // pub fn is_unverified(&self) -> bool {
+    //     !self.is_synced()
+    // }
 }
 
-pub fn parse_time(s: &str) -> Option<NaiveTime> {
-    NaiveTime::parse_from_str(s, "%H:%M").ok()
+#[cfg(test)]
+pub fn parse_time(s: &str) -> Option<chrono::NaiveTime> {
+    chrono::NaiveTime::parse_from_str(s, "%H:%M").ok()
 }
 
 pub fn is_in_reminder_window(
@@ -80,7 +81,14 @@ pub fn is_in_reminder_window(
 ) -> bool {
     let prayer = now
         .timezone()
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), prayer_hour, prayer_min, 0)
+        .with_ymd_and_hms(
+            now.year(),
+            now.month(),
+            now.day(),
+            prayer_hour,
+            prayer_min,
+            0,
+        )
         .single();
     if let Some(prayer_dt) = prayer {
         let reminder = prayer_dt + chrono::Duration::minutes(offset_minutes as i64);
@@ -93,7 +101,7 @@ pub fn is_in_reminder_window(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Datelike, Timelike};
+    use chrono::Timelike;
 
     #[test]
     fn test_utc_to_jakarta() {
@@ -128,7 +136,10 @@ mod tests {
     #[test]
     fn test_is_in_reminder_window_true() {
         let tz: Tz = "Asia/Jakarta".parse().unwrap();
-        let now = tz.with_ymd_and_hms(2026, 6, 23, 12, 10, 0).single().unwrap();
+        let now = tz
+            .with_ymd_and_hms(2026, 6, 23, 12, 10, 0)
+            .single()
+            .unwrap();
         assert!(is_in_reminder_window(now, 12, 15, -5));
     }
 
@@ -142,7 +153,10 @@ mod tests {
     #[test]
     fn test_is_in_reminder_window_false_after() {
         let tz: Tz = "Asia/Jakarta".parse().unwrap();
-        let now = tz.with_ymd_and_hms(2026, 6, 23, 12, 16, 0).single().unwrap();
+        let now = tz
+            .with_ymd_and_hms(2026, 6, 23, 12, 16, 0)
+            .single()
+            .unwrap();
         assert!(!is_in_reminder_window(now, 12, 15, -5));
     }
 

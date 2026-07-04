@@ -43,16 +43,29 @@ pub fn match_city<'a>(query: &str, cities: &'a [City]) -> Option<&'a City> {
 }
 
 const WITA_PROVINCES: &[&str] = &[
-    "BALI", "NUSA TENGGARA BARAT", "NUSA TENGGARA TIMUR",
-    "SULAWESI UTARA", "SULAWESI TENGAH", "SULAWESI SELATAN",
-    "SULAWESI TENGGARA", "SULAWESI BARAT", "GORONTALO",
-    "KALIMANTAN TENGAH", "KALIMANTAN SELATAN", "KALIMANTAN TIMUR",
+    "BALI",
+    "NUSA TENGGARA BARAT",
+    "NUSA TENGGARA TIMUR",
+    "SULAWESI UTARA",
+    "SULAWESI TENGAH",
+    "SULAWESI SELATAN",
+    "SULAWESI TENGGARA",
+    "SULAWESI BARAT",
+    "GORONTALO",
+    "KALIMANTAN TENGAH",
+    "KALIMANTAN SELATAN",
+    "KALIMANTAN TIMUR",
     "KALIMANTAN UTARA",
 ];
 
 const WIT_PROVINCES: &[&str] = &[
-    "MALUKU", "MALUKU UTARA", "PAPUA", "PAPUA BARAT",
-    "PAPUA SELATAN", "PAPUA TENGAH", "PAPUA PEGUNUNGAN",
+    "MALUKU",
+    "MALUKU UTARA",
+    "PAPUA",
+    "PAPUA BARAT",
+    "PAPUA SELATAN",
+    "PAPUA TENGAH",
+    "PAPUA PEGUNUNGAN",
     "PAPUA BARAT DAYA",
 ];
 
@@ -82,8 +95,14 @@ mod tests {
     #[test]
     fn test_match_city_exact() {
         let cities = vec![
-            City { id: "1".into(), lokasi: "KOTA KEDIRI".into() },
-            City { id: "2".into(), lokasi: "KAB. KEDIRI".into() },
+            City {
+                id: "1".into(),
+                lokasi: "KOTA KEDIRI".into(),
+            },
+            City {
+                id: "2".into(),
+                lokasi: "KAB. KEDIRI".into(),
+            },
         ];
         let m = match_city("Kediri", &cities);
         assert!(m.is_some());
@@ -92,9 +111,10 @@ mod tests {
 
     #[test]
     fn test_match_city_ip_api_variant() {
-        let cities = vec![
-            City { id: "1".into(), lokasi: "KOTA BANJARMASIN".into() },
-        ];
+        let cities = vec![City {
+            id: "1".into(),
+            lokasi: "KOTA BANJARMASIN".into(),
+        }];
         let m = match_city("Kota Banjarmasin", &cities);
         assert!(m.is_some());
     }

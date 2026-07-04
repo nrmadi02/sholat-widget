@@ -37,16 +37,16 @@ impl ApiClient {
     }
 
     /// GET /sholat/kabkota/semua — full city list.
-    pub async fn get_all_cities(&self) -> Result<Vec<City>, reqwest::Error> {
-        let resp: CitiesResponse = self
-            .client
-            .get(format!("{}/sholat/kabkota/semua", MYQURAN_BASE))
-            .send()
-            .await?
-            .json()
-            .await?;
-        Ok(resp.data)
-    }
+    // pub async fn get_all_cities(&self) -> Result<Vec<City>, reqwest::Error> {
+    //     let resp: CitiesResponse = self
+    //         .client
+    //         .get(format!("{}/sholat/kabkota/semua", MYQURAN_BASE))
+    //         .send()
+    //         .await?
+    //         .json()
+    //         .await?;
+    //     Ok(resp.data)
+    // }
 
     /// GET /sholat/kabkota/cari/{query} — search cities by name.
     pub async fn search_cities(&self, query: &str) -> Result<Vec<City>, reqwest::Error> {

@@ -56,11 +56,6 @@ impl CacheStore {
         cache.schedules.get(date).cloned()
     }
 
-    pub fn get_today_schedule(&self) -> Option<JadwalEntry> {
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-        self.get_schedule_for_date(&today)
-    }
-
     pub fn load_reminded(&self) -> RemindedFlags {
         match fs::read_to_string(self.reminded_path()) {
             Ok(json) => serde_json::from_str(&json).unwrap_or(RemindedFlags {
@@ -103,12 +98,6 @@ impl CacheStore {
             Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
             Err(_) => Vec::new(),
         }
-    }
-
-    pub fn save_cities(&self, cities: &[City]) -> std::io::Result<()> {
-        let json = serde_json::to_string(cities)?;
-        fs::write(self.cities_path(), json)?;
-        Ok(())
     }
 }
 

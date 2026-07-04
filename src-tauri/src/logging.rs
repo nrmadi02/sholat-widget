@@ -44,14 +44,6 @@ impl Logger {
         self.log("INFO", msg);
     }
 
-    pub fn warn(&self, msg: &str) {
-        self.log("WARN", msg);
-    }
-
-    pub fn error(&self, msg: &str) {
-        self.log("ERROR", msg);
-    }
-
     /// Delete log files older than 7 days.
     pub fn cleanup_old_logs(&self) {
         if let Ok(entries) = fs::read_dir(&self.log_dir) {

@@ -6,7 +6,6 @@ mod config;
 mod location;
 mod logging;
 pub mod models;
-mod qibla;
 mod schedule;
 mod scheduler;
 mod time;
@@ -14,14 +13,98 @@ mod time;
 use audio::AudioPlayer;
 use cache::CacheStore;
 use config::{load_config, save_config, Config};
+use std::sync::{Arc, Mutex};
 use tauri::path::BaseDirectory;
-use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
+    Emitter, Manager, RunEvent, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use tauri_plugin_notification::NotificationExt;
+#[cfg(desktop)]
+use tauri_plugin_positioner::{Position, WindowExt};
+
+struct ReminderState(Mutex<Option<String>>);
+
+fn show_reminder_window(app: &tauri::AppHandle, prayer: &str) {
+    if let Ok(mut state) = app.state::<ReminderState>().0.lock() {
+        *state = Some(prayer.to_string());
+    }
+    if let Some(win) = app.get_webview_window("reminder") {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+}
+
+fn hide_main_window(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.hide();
+    }
+}
+
+fn show_tray_window(app: &tauri::AppHandle) -> Result<(), String> {
+    hide_main_window(app);
+
+    let win = app
+        .get_webview_window("tray")
+        .ok_or("tray window not found")?;
+    #[cfg(desktop)]
+    {
+        let _ = win
+            .as_ref()
+            .window()
+            .move_window(Position::TrayBottomCenter);
+    }
+    win.show().map_err(|e| e.to_string())?;
+    win.set_focus().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn toggle_tray_window(app: &tauri::AppHandle) -> Result<(), String> {
+    let win = app
+        .get_webview_window("tray")
+        .ok_or("tray window not found")?;
+    if win.is_visible().map_err(|e| e.to_string())? {
+        win.hide().map_err(|e| e.to_string())?;
+    } else {
+        show_tray_window(app)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn open_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    let cfg = load_config();
+    if !cfg.onboarding_done {
+        return Err("Selesaikan onboarding terlebih dahulu.".into());
+    }
+
+    if let Some(tray) = app.get_webview_window("tray") {
+        let _ = tray.hide();
+    }
+
+    let win = app
+        .get_webview_window("main")
+        .ok_or("main window not found")?;
+    win.show().map_err(|e| e.to_string())?;
+    win.set_focus().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_main_window_cmd(app: tauri::AppHandle) -> Result<(), String> {
+    hide_main_window(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_tray_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("tray") {
+        win.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
 
 #[tauri::command]
 fn get_config() -> Config {
@@ -58,7 +141,9 @@ async fn save_settings(config: Config, app: tauri::AppHandle) -> Result<Config, 
         }
     }
 
-    Ok(load_config())
+    let saved = load_config();
+    let _ = app.emit("config-updated", &saved);
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -66,11 +151,6 @@ fn get_current_time() -> String {
     let cfg = load_config();
     let ts = time::TimeService::new(&cfg.timezone);
     ts.now_local().format("%H:%M:%S").to_string()
-}
-
-#[tauri::command]
-fn get_qibla_bearing(lat: f64, lon: f64) -> f64 {
-    qibla::qibla_bearing(lat, lon)
 }
 
 #[tauri::command]
@@ -107,19 +187,66 @@ fn test_sound() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_pending_reminder(state: tauri::State<ReminderState>) -> Option<String> {
+    state.0.lock().ok().and_then(|s| s.clone())
+}
+
+#[tauri::command]
+fn close_reminder_window(app: tauri::AppHandle, state: tauri::State<ReminderState>) {
+    if let Ok(mut s) = state.0.lock() {
+        *s = None;
+    }
+    if let Some(win) = app.get_webview_window("reminder") {
+        let _ = win.hide();
+    }
+}
+
+#[tauri::command]
 async fn search_cities(query: String) -> Result<Vec<models::City>, String> {
     let api = api::ApiClient::new();
     api.search_cities(&query).await.map_err(|e| e.to_string())
 }
 
+fn focus_running_instance(app: &tauri::AppHandle) {
+    let cfg = load_config();
+    if cfg.onboarding_done {
+        if let Some(main) = app.get_webview_window("main") {
+            if main.is_visible().unwrap_or(false) {
+                let _ = main.set_focus();
+                return;
+            }
+        }
+    }
+    let _ = show_tray_window(app);
+}
+
+fn handle_close_request(window: &tauri::Window, api: &tauri::CloseRequestApi) {
+    let _ = window.hide();
+    api.prevent_close();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut app = tauri::Builder::default()
+        .manage(ReminderState(Mutex::new(None)))
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            focus_running_instance(app);
+        }))
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                handle_close_request(window, api);
+            }
+        })
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             let logger = std::sync::Arc::new(logging::Logger::new());
             logger.cleanup_old_logs();
             logger.info("Sholat Widget starting up");
@@ -133,25 +260,23 @@ pub fn run() {
             }
 
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let settings_item =
-                MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
+            let settings_item = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&settings_item, &quit_item])?;
 
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
+                .show_menu_on_left_click(false)
                 .tooltip("Sholat Widget")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
                     "settings" => {
-                        if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
-                        }
+                        let _ = show_tray_window(app);
                     }
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
+                    tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
@@ -159,10 +284,7 @@ pub fn run() {
                     } = event
                     {
                         let app = tray.app_handle();
-                        if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
-                        }
+                        let _ = toggle_tray_window(&app);
                     }
                 })
                 .build(app)?;
@@ -199,10 +321,19 @@ pub fn run() {
             let ts_clone = time_service.clone();
             let app_handle = app.handle().clone();
             let on_remind = Arc::new(move |kind: models::PrayerKind| {
-                let _ = app_handle.emit("prayer-reminder", kind.label());
-                if let Some(win) = app_handle.get_webview_window("main") {
-                    let _ = win.show();
-                    let _ = win.set_focus();
+                // Show standalone reminder window
+                show_reminder_window(&app_handle, kind.label());
+
+                // Native OS notification as fallback (screen off / lock screen)
+                let body = format!("Sudah masuk waktu sholat {}", kind.label());
+                if let Err(e) = app_handle
+                    .notification()
+                    .builder()
+                    .title("Sholat Widget")
+                    .body(&body)
+                    .show()
+                {
+                    log::warn!("gagal kirim notifikasi: {e}");
                 }
             });
 
@@ -226,12 +357,25 @@ pub fn run() {
             get_config,
             save_settings,
             get_current_time,
-            get_qibla_bearing,
             get_today_schedule,
             complete_onboarding,
             test_sound,
             search_cities,
+            open_main_window,
+            hide_tray_window,
+            hide_main_window_cmd,
+            get_pending_reminder,
+            close_reminder_window,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+    app.run(|_app_handle, event| {
+        if let RunEvent::ExitRequested { api, .. } = event {
+            api.prevent_exit();
+        }
+    });
 }

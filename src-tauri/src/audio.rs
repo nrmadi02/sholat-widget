@@ -58,10 +58,12 @@ impl AudioPlayer {
         *self.muted.lock().unwrap() = muted;
     }
 
+    #[cfg(test)]
     pub fn is_muted(&self) -> bool {
         *self.muted.lock().unwrap()
     }
 
+    #[cfg(test)]
     pub fn get_volume(&self) -> f32 {
         *self.volume.lock().unwrap()
     }
