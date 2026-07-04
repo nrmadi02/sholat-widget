@@ -5,6 +5,17 @@ Semua perubahan penting pada proyek ini didokumentasikan di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 dan proyek ini mematuhi [Semantic Versioning](https://semver.org/lang/id/).
 
+## [0.3.2] - 2026-07-05
+
+### Diubah
+
+- Suara pengingat diganti dari bedug ke **azan** (`azan.mp3`) di seluruh aplikasi dan dokumentasi
+
+### Ditambahkan
+
+- Preview azan di onboarding dengan progress bar dan tombol **Stop**
+- Command `get_azan_duration_ms` dan `stop_test_sound` untuk kontrol preview audio
+
 ## [0.3.1] - 2026-07-04
 
 ### Diperbaiki
