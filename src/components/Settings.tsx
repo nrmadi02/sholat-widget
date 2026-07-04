@@ -1,78 +1,171 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { Volume2, VolumeX } from "lucide-react";
 import { LocationPicker } from "./LocationPicker";
-import type { AppConfig } from "../types/config";
+import type { AppConfig } from "@/types/config";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function Settings({
   config,
-  onClose,
+  open,
+  onOpenChange,
+  onSaved,
 }: {
   config: AppConfig;
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved?: (cfg: AppConfig) => void;
 }) {
   const [cfg, setCfg] = useState<AppConfig>(config);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync local state when config changes from another window
+  useEffect(() => {
+    if (!open) setCfg(config);
+  }, [config, open]);
 
   const persist = async (updated: AppConfig) => {
     try {
       const saved = await invoke<AppConfig>("save_settings", { config: updated });
       setCfg(saved);
+      onSaved?.(saved);
       setError(null);
     } catch (err) {
       setError(String(err));
     }
   };
 
-  const updateVolume = async (v: number) => {
-    await persist({ ...cfg, volume: v });
+  const updateVolume = async (value: number | readonly number[]) => {
+    const values = Array.isArray(value) ? value : [value];
+    await persist({ ...cfg, volume: values[0] / 100 });
   };
 
-  const toggleMute = async () => {
-    await persist({ ...cfg, muted: !cfg.muted });
+  const toggleMute = async (checked: boolean) => {
+    await persist({ ...cfg, muted: checked });
   };
 
-  const toggleAutoLaunch = async () => {
-    await persist({ ...cfg, auto_launch: !cfg.auto_launch });
+  const toggleAutoLaunch = async (checked: boolean) => {
+    await persist({ ...cfg, auto_launch: checked });
   };
 
   return (
-    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
-      <h3>⚙️ Settings</h3>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0">
+        {/* sticky header */}
+        <DialogHeader className="shrink-0 border-b px-5 pb-4 pt-5">
+          <DialogTitle>Pengaturan</DialogTitle>
+          <DialogDescription>
+            Lokasi, volume bedug, dan perilaku widget.
+          </DialogDescription>
+        </DialogHeader>
 
-      <LocationPicker config={cfg} onSaved={(saved) => setCfg(saved)} onError={setError} />
+        {/* scrollable body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <FieldGroup className="gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Lokasi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LocationPicker
+                  config={cfg}
+                  onSaved={(saved) => {
+                    setCfg(saved);
+                    onSaved?.(saved);
+                  }}
+                  onError={setError}
+                />
+              </CardContent>
+            </Card>
 
-      <div style={{ marginBottom: 16 }}>
-        <label>Volume: {Math.round(cfg.volume * 100)}%</label>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={cfg.volume * 100}
-          onChange={(e) => updateVolume(Number(e.target.value) / 100)}
-          style={{ width: "100%" }}
-        />
-        <label>
-          <input type="checkbox" checked={cfg.muted} onChange={toggleMute} />
-          Mute
-        </label>
-      </div>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Audio</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <Field>
+                  <div className="flex items-center justify-between">
+                    <FieldLabel>Volume bedug</FieldLabel>
+                    <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                      {Math.round(cfg.volume * 100)}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={[Math.round(cfg.volume * 100)]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={updateVolume}
+                    aria-label="Volume bedug"
+                  />
+                </Field>
 
-      <div style={{ marginBottom: 16 }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={cfg.auto_launch}
-            onChange={toggleAutoLaunch}
-          />
-          Mulai saat komputer dinyalakan
-        </label>
-      </div>
+                <Field orientation="horizontal">
+                  <div className="flex flex-1 flex-col gap-0.5">
+                    <FieldLabel>Bisukan notifikasi</FieldLabel>
+                  </div>
+                  <Switch
+                    checked={cfg.muted}
+                    onCheckedChange={toggleMute}
+                    aria-label="Bisukan notifikasi"
+                  />
+                </Field>
+              </CardContent>
+            </Card>
 
-      {error && (
-        <p style={{ color: "#b42318", fontSize: 12, marginBottom: 8 }}>{error}</p>
-      )}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Sistem</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Field orientation="horizontal">
+                  <div className="flex flex-1 flex-col gap-0.5">
+                    <FieldLabel>Mulai saat komputer dinyalakan</FieldLabel>
+                  </div>
+                  <Switch
+                    checked={cfg.auto_launch}
+                    onCheckedChange={toggleAutoLaunch}
+                    aria-label="Mulai saat komputer dinyalakan"
+                  />
+                </Field>
+              </CardContent>
+            </Card>
 
-      <button onClick={onClose}>Tutup</button>
-    </div>
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </FieldGroup>
+        </div>
+
+        {/* sticky footer */}
+        <div className="shrink-0 border-t bg-muted/30 px-5 py-4">
+          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+            {cfg.muted ? (
+              <VolumeX className="size-3.5 shrink-0" />
+            ) : (
+              <Volume2 className="size-3.5 shrink-0" />
+            )}
+            <span>{cfg.muted ? "Notifikasi dibisukan" : "Notifikasi aktif"}</span>
+          </div>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full">
+            Tutup
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
