@@ -9,6 +9,7 @@ pub mod models;
 mod schedule;
 mod scheduler;
 mod time;
+mod tray_position;
 mod updater;
 
 use audio::AudioPlayer;
@@ -24,8 +25,7 @@ use tauri::{
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_notification::NotificationExt;
-#[cfg(desktop)]
-use tauri_plugin_positioner::{Position, WindowExt};
+use tray_position::{TrayRectState, update_from_tray_event};
 
 struct ReminderState(Mutex<Option<String>>);
 struct ExitGuard(AtomicBool);
@@ -52,13 +52,7 @@ fn show_tray_window(app: &tauri::AppHandle) -> Result<(), String> {
     let win = app
         .get_webview_window("tray")
         .ok_or("tray window not found")?;
-    #[cfg(desktop)]
-    {
-        let _ = win
-            .as_ref()
-            .window()
-            .move_window(Position::TrayBottomCenter);
-    }
+    tray_position::position_tray_window(app, &win)?;
     win.show().map_err(|e| e.to_string())?;
     win.set_focus().map_err(|e| e.to_string())?;
     Ok(())
@@ -253,6 +247,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate(Mutex::new(None)))
+        .manage(TrayRectState(Mutex::new(None)))
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 handle_close_request(window, api);
@@ -296,7 +291,19 @@ pub fn run() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
+                    let app = tray.app_handle();
+                    tauri_plugin_positioner::on_tray_event(app, &event);
+                    if let Some(state) = app.try_state::<TrayRectState>() {
+                        match event {
+                            TrayIconEvent::Click { rect, .. }
+                            | TrayIconEvent::Enter { rect, .. }
+                            | TrayIconEvent::Leave { rect, .. }
+                            | TrayIconEvent::Move { rect, .. } => {
+                                update_from_tray_event(&state, &rect);
+                            }
+                            _ => {}
+                        }
+                    }
                     if let TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,

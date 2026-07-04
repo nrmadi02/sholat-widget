@@ -5,6 +5,12 @@ Semua perubahan penting pada proyek ini didokumentasikan di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 dan proyek ini mematuhi [Semantic Versioning](https://semver.org/lang/id/).
 
+## [0.3.1] - 2026-07-04
+
+### Diperbaiki
+
+- Popup tray muncul di posisi salah — deteksi tepi taskbar (atas/bawah/kiri/kanan) dan posisikan popup relatif terhadap ikon tray
+
 ## [0.3.0] - 2026-07-04
 
 ### Diperbaiki
