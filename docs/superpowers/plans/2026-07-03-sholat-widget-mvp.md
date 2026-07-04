@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a cross-platform (macOS/Windows) system-tray prayer-time reminder widget using Tauri (Rust backend) + React (webview native), with auto/manual location detection, NTP-synced accurate time, bedug audio at -5 min before each prayer, and qibla direction.
+**Goal:** Build a cross-platform (macOS/Windows) system-tray prayer-time reminder widget using Tauri (Rust backend) + React (webview native), with auto/manual location detection, NTP-synced accurate time, azan audio at -5 min before each prayer, and qibla direction.
 
 **Architecture:** Tauri v2 app. Rust backend handles scheduling, API calls (myquran v3), NTP time sync, geolocation, audio playback, caching, and qibla calculation. React frontend renders the popup widget, onboarding wizard, settings panel, and qibla compass. Frontend never computes time itself — it always queries the Rust time service for the current accurate local time.
 
@@ -46,7 +46,7 @@
 
 | Path | Content |
 |---|---|
-| `src-tauri/assets/sounds/bedug.mp3` | User-provided bedug audio |
+| `src-tauri/assets/sounds/azan.mp3` | User-provided azan audio |
 | `src-tauri/assets/cities_fallback.json` | Top-50 Indonesian cities (offline fallback) |
 | `src-tauri/icons/mosque.png` | Tray icon (mosque silhouette) |
 | `src-tauri/tests/fixtures/*.json` | Real API response snapshots for contract tests |
@@ -1390,19 +1390,19 @@ impl AudioPlayer {
         Ok(())
     }
 
-    /// Convenience: play the bundled bedug asset.
-    pub fn play_bedug(&self) -> Result<(), String> {
-        let path = bedug_path();
+    /// Convenience: play the bundled azan asset.
+    pub fn play_azan(&self) -> Result<(), String> {
+        let path = azan_path();
         self.play(&path)
     }
 }
 
-/// Resolve the bedug audio path from bundled assets.
+/// Resolve the azan audio path from bundled assets.
 /// At runtime in Tauri, assets resolve via the app resource dir.
-pub fn bedug_path() -> String {
+pub fn azan_path() -> String {
     // In dev: relative to CWD. In prod: Tauri resource dir.
     // This is refined in the Tauri integration task.
-    "src-tauri/assets/sounds/bedug.mp3".to_string()
+    "src-tauri/assets/sounds/azan.mp3".to_string()
 }
 
 #[cfg(test)]
@@ -1447,14 +1447,14 @@ Add to `src-tauri/src/main.rs`:
 mod audio;
 ```
 
-- [ ] **Step 3: Add a placeholder bedug sound for testing**
+- [ ] **Step 3: Add a placeholder azan sound for testing**
 
-Download a short public-domain bell/bedug-like sound (or create a silent placeholder):
+Download a short public-domain bell/azan-like sound (or create a silent placeholder):
 
 ```bash
 # Placeholder: generate a 1-second silent wav if no real file yet
-ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 1 src-tauri/assets/sounds/bedug.mp3 2>/dev/null \
-  || echo "ffmpeg not found; user will provide bedug.mp3 later"
+ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 1 src-tauri/assets/sounds/azan.mp3 2>/dev/null \
+  || echo "ffmpeg not found; user will provide azan.mp3 later"
 ```
 
 - [ ] **Step 4: Run tests**
@@ -1550,7 +1550,7 @@ pub async fn run_scheduler(
 
                     if in_window && !already {
                         // Trigger reminder
-                        let _ = audio.play_bedug();
+                        let _ = audio.play_azan();
                         on_remind(kind);
                         let _ = cache.mark_reminded(today, kind);
                     }
@@ -1839,7 +1839,7 @@ fn complete_onboarding(config: Config) -> Result<(), String> {
 #[tauri::command]
 fn test_sound() -> Result<(), String> {
     let player = AudioPlayer::new();
-    player.play_bedug()
+    player.play_azan()
 }
 
 #[tokio::main]
@@ -2777,15 +2777,15 @@ git commit -m "feat: add qibla compass UI with bearing display"
 **Files:**
 - Modify: `src/App.tsx` (listen for reminder event)
 - Modify: `src/components/Popup.tsx` (reminder banner)
-- Add: `src-tauri/assets/sounds/bedug.mp3` (user-provided)
+- Add: `src-tauri/assets/sounds/azan.mp3` (user-provided)
 
-- [ ] **Step 1: Add the real bedug sound file**
+- [ ] **Step 1: Add the real azan sound file**
 
-Replace the placeholder with the actual bedug audio provided by the user:
+Replace the placeholder with the actual azan audio provided by the user:
 
 ```bash
-# User provides bedug.mp3 — copy it to assets
-cp /path/to/user-provided-bedug.mp3 src-tauri/assets/sounds/bedug.mp3
+# User provides azan.mp3 — copy it to assets
+cp /path/to/user-provided-azan.mp3 src-tauri/assets/sounds/azan.mp3
 ```
 
 If the user has not provided it yet, keep the placeholder and note it as a manual step before release.
@@ -2852,8 +2852,8 @@ To test without waiting for real prayer time, temporarily lower the offset in co
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/ src-tauri/assets/sounds/bedug.mp3
-git commit -m "feat: wire prayer-reminder event to popup banner and bedug audio"
+git add src/ src-tauri/assets/sounds/azan.mp3
+git commit -m "feat: wire prayer-reminder event to popup banner and azan audio"
 ```
 
 ---
@@ -3001,7 +3001,7 @@ Run `cargo tauri dev` and verify each item:
 □ Onboarding 4-step works on first run (delete config to test)
 □ Auto-detect location: correct city
 □ Manual city select: search "kediri" → results appear
-□ Volume slider changes bedug loudness
+□ Volume slider changes azan loudness
 □ Mute toggle silences test sound
 □ Settings saved across restart (delete config, re-run)
 □ Auto-launch enabled in login items
@@ -3059,7 +3059,7 @@ Task 1 (scaffold)
   │     │     ├─► Task 14 (Onboarding)
   │     │     ├─► Task 15 (Settings)
   │     │     └─► Task 16 (Qibla UI)
-  │     ├─► Task 17 (reminder event + bedug)
+  │     ├─► Task 17 (reminder event + azan)
   │     └─► Task 18 (logging)
   └─► Task 19 (test + release)
 ```

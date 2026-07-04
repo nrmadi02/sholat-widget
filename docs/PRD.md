@@ -16,7 +16,7 @@
 
 **Sholat Widget** adalah aplikasi desktop pengingat waktu sholat untuk pengguna
 Muslim di Indonesia. Aplikasi berjalan di _system tray_, menampilkan jadwal
-sholat harian dari Kemenag, dan memberi pengingat (notifikasi + suara bedug)
+sholat harian dari Kemenag, dan memberi pengingat (notifikasi + suara azan)
 beberapa menit sebelum setiap waktu sholat masuk.
 
 Aplikasi dibangun dengan **Tauri v2** (Rust) sebagai backend dan **React 19 +
@@ -112,7 +112,7 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 | ----------------- | ---------------------------- | ------------------------------- |
 | Framework         | Tauri v2.10                  | App shell, multi-window, IPC    |
 | HTTP Client       | reqwest 0.12                 | API Kemenag & geolocation       |
-| Audio             | rodio 0.20                   | Pemutar suara bedug             |
+| Audio             | rodio 0.20                   | Pemutar suara azan             |
 | Waktu             | rsntp 4 + chrono 0.4 + chrono-tz | NTP sync & konversi timezone |
 | Scheduling        | tokio                        | Async runtime untuk scheduler   |
 | Logging           | tauri-plugin-log + custom logger | File log rotasi harian       |
@@ -157,7 +157,7 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 │         │                  │                    │           │
 │  ┌──────▼───────┐   ┌──────▼───────┐   ┌────────▼─────────┐ │
 │  │ Time Service │   │  API Client  │   │  Audio Player    │ │
-│  │ (NTP sync)   │   │  (reqwest)   │   │  (rodio + bedug) │ │
+│  │ (NTP sync)   │   │  (reqwest)   │   │  (rodio + azan) │ │
 │  └──────────────┘   └──────────────┘   └──────────────────┘ │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────────┐│
@@ -197,7 +197,7 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 | `city`       | City matching  | Fuzzy match nama kota, provinsi → timezone map    |
 | `cache`      | Cache store    | Persist jadwal, reminded flags, cities ke disk    |
 | `config`     | Config         | Load/save config.json                             |
-| `audio`      | Audio player   | rodio playback bedug, volume/mute control         |
+| `audio`      | Audio player   | rodio playback azan, volume/mute control         |
 | `models`     | Data models    | Struct serde: City, JadwalEntry, PrayerKind, dll  |
 | `logging`    | Logger         | File log rotasi 7 hari                            |
 
@@ -219,7 +219,7 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 | ------ | ---------------------------------------- | -------------------------------------------------- |
 | ✅     | Welcome screen                           | Penjelasan singkat fungsi widget                   |
 | ✅     | Pemilihan lokasi                         | Auto (GPS/IP) atau Manual (cari kota)              |
-| ✅     | Konfigurasi audio                        | Slider volume, test bunyi bedug, toggle mute       |
+| ✅     | Konfigurasi audio                        | Slider volume, test bunyi azan, toggle mute       |
 | ✅     | Selesai                                  | Konfirmasi & mulai                                 |
 | ✅     | Stepper indikator progres                | Visual 4 langkah dengan checkmark                  |
 
@@ -244,7 +244,7 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 | ✅     | Pengingat N menit sebelum sholat         | `reminder_offset_minutes` (default -5)             |
 | ✅     | Window pengingat masuk waktu sholat      | Standalone `reminder` window (340×220, glass)      |
 | ✅     | Notifikasi native OS                     | Fallback untuk layar mati / lock screen            |
-| ✅     | Suara bedug (rodio)                      | `bedug.mp3`, volume & mute dari config             |
+| ✅     | Suara azan (rodio)                      | `azan.mp3`, volume & mute dari config             |
 | ✅     | Dedup pengingat (reminded flags)         | HashSet `tanggal:PrayerKind`, cleanup harian       |
 | ✅     | NTP time synchronization                 | `pool.ntp.org`, sync setiap 1 jam, drift correction|
 
@@ -268,7 +268,7 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 | ------ | ---------------------------------------- | -------------------------------------------------- |
 | ✅     | Dialog Settings (dari tray & main)       | Sticky header/footer, scrollable body              |
 | ✅     | Ubah lokasi (Auto / Manual)              | `LocationPicker` component                         |
-| ✅     | Volume bedug slider                      | 0–100%, realtime persist                           |
+| ✅     | Volume azan slider                      | 0–100%, realtime persist                           |
 | ✅     | Toggle mute                              | Switch                                                             |
 | ✅     | Toggle auto-launch                       | `tauri-plugin-autostart`                           |
 | ✅     | Hot-reload config lintas window          | `config-updated` event emit                        |
@@ -301,7 +301,7 @@ Fitur berikut **sengaja tidak masuk** MVP 1 atau dikeluarkan dari roadmap:
 
 | Fitur               | Catatan                                                  |
 | -------------------- | -------------------------------------------------------- |
-| Adzan audio penuh    | Saat ini hanya bedug; rekaman adzan butuh lisensi        |
+| Adzan audio penuh    | Saat ini hanya azan; rekaman adzan butuh lisensi        |
 | Multi-bahasa (EN)   | Saat ini hardcode Bahasa Indonesia                       |
 | Imsak notification   | Data sudah ada di API, belum ada trigger terpisah        |
 | Hijri calendar view  | API MyQuran mendukung, belum di-integrasikan            |
@@ -386,7 +386,7 @@ Fitur berikut **sengaja tidak masuk** MVP 1 atau dikeluarkan dari roadmap:
 | Fitur                                    | Catatan                                  |
 | ---------------------------------------- | ---------------------------------------- |
 | Widget desktop native (macOS/Windows)    | Butuh riset API platform                 |
-| Pilihan sound pengingat (bedug/adzan/notif) | Paket audio dengan lisensi jelas       |
+| Pilihan sound pengingat (azan/notif) | Paket audio dengan lisensi jelas       |
 | Statistik konsistensi sholat             | Local-only, privacy-first                |
 | Sinkronisasi config antar perangkat      | Butuh backend (opsional)                 |
 

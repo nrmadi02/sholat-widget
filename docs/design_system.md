@@ -421,7 +421,7 @@ Hindari animasi yang memperlambat aksi inti (clock tick, countdown) — tetap in
 
 - Trigger: event Tauri `prayer-reminder` (sudah ada di `App.tsx` + `scheduler.rs`).
 - Render: `Dialog` non-dismissable (`onInteractOutside={(e)=>e.preventDefault()}`), auto-close setelah 60s (sudah ada).
-- Aksi: "Dengar Bedug" → command `test_sound` (sudah ada).
+- Aksi: "Dengar Azan" → command `test_sound` (sudah ada).
 
 ### 9.4 Empty / error / loading
 

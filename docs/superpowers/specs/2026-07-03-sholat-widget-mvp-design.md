@@ -8,7 +8,7 @@
 
 ## 1. Ringkasan Produk
 
-Widget desktop pengingat sholat untuk Mac & Windows yang berjalan di system tray. Menggunakan API myquran.com v3 untuk jadwal sholat, mendeteksi lokasi secara otomatis via IP geolocation (dengan fallback manual), memainkan bunyi bedug kustom 5 menit sebelum setiap sholat, dan menampilkan popup window otomatis sebagai pengingat.
+Widget desktop pengingat sholat untuk Mac & Windows yang berjalan di system tray. Menggunakan API myquran.com v3 untuk jadwal sholat, mendeteksi lokasi secara otomatis via IP geolocation (dengan fallback manual), memainkan bunyi azan kustom 5 menit sebelum setiap sholat, dan menampilkan popup window otomatis sebagai pengingat.
 
 **Dibangun dengan:** Tauri (Rust backend + React frontend via webview native OS, bukan Electron/Chromium bundling).
 
@@ -44,13 +44,13 @@ Default: Auto. User bisa override ke manual kapan saja di Settings.
 
 ### 2.3 Pengingat Sholat
 - Pengingat dimainkan **5 menit sebelum** setiap dari 5 sholat (Subuh, Dzuhur, Ashar, Maghrib, Isya)
-- Saat trigger: bunyi bedug + popup window otomatis muncul
+- Saat trigger: bunyi azan + popup window otomatis muncul
 - Popup menampilkan: nama sholat, waktu sholat, countdown
 - Anti double-trigger: flag per sholat per hari
 - Sholat yang sudah lewat waktunya tidak di-trigger (skip)
 
 ### 2.4 Audio & Volume
-- File bedug dibundel di `assets/sounds/` (format mp3/wav)
+- File azan dibundel di `assets/sounds/` (format mp3/wav)
 - Volume slider app-level (0.0–1.0) — **tidak menyentuh volume sistem**
 - Mute toggle
 - Tombol "Test bunyi" di Settings & Onboarding
@@ -96,7 +96,7 @@ Default: Auto. User bisa override ke manual kapan saja di Settings.
 | API Client | `api.rs` | HTTP client ke myquran v3 (jadwal, search kota, IP) |
 | Location Service | `location.rs` | Auto-detect via IP + manual search, resolve ke cityId + timezone |
 | Time Service | `time.rs` | NTP sync UTC akurat, konversi ke timezone kota (bukan device) |
-| Audio Player | `audio.rs` | Putar bedug, volume app-level, mute |
+| Audio Player | `audio.rs` | Putar azan, volume app-level, mute |
 | Cache Store | `cache.rs` | Persistensi jadwal + list kota + config ke file |
 | Qibla Sensor | `qibla.rs` | Baca compass (jika ada), hitung bearing ke Ka'bah |
 | Config | `config.rs` | Read/write settings user |
@@ -130,7 +130,7 @@ sholat-widget/
 │   │   └── city.rs
 │   ├── assets/
 │   │   ├── sounds/
-│   │   │   └── bedug.mp3
+│   │   │   └── azan.mp3
 │   │   └── cities_fallback.json    # top 50 kota, pre-bundled
 │   ├── icons/
 │   │   └── mosque.png              # tray icon
@@ -216,7 +216,7 @@ loop {
 
         if now >= reminder_time && now < prayer.time
            && !already_reminded(prayer, today) {
-            audio.play("bedug.mp3", volume, muted);
+            audio.play("azan.mp3", volume, muted);
             tray.show_popup(prayer.name, prayer.time);
             mark_reminded(prayer, today);
         }
@@ -477,9 +477,9 @@ Simpan response API real ke `src-tauri/tests/fixtures/`. Test parsing terhadap f
 □ Deteksi auto lokasi akurat (bandingkan manual)
 □ Manual pilih kota → jadwal update
 □ Search kota berfungsi (ketik "kediri" → muncul hasil)
-□ Volume slider mengubah volume bedug
+□ Volume slider mengubah volume azan
 □ Mute toggle mematikan bunyi
-□ Saat -5 menit sebelum sholat: bedug berbunyi + popup muncul
+□ Saat -5 menit sebelum sholat: azan berbunyi + popup muncul
 □ Popup otomatis close-able
 □ Restart app → pengingat tetap jalan (config persist)
 □ Disconnect internet → cache jadwal tetap dipakai
@@ -528,7 +528,7 @@ Simpan response API real ke `src-tauri/tests/fixtures/`. Test parsing terhadap f
 |---|---|
 | M1: Skeleton | Tauri project setup, tray icon mesjid, popup window kosong |
 | M2: API & Lokasi | API client, location chain, city search, cache |
-| M3: Scheduler & Audio | Scheduler 30-detik, trigger -5 menit, audio player bedug |
+| M3: Scheduler & Audio | Scheduler 30-detik, trigger -5 menit, audio player azan |
 | M4: Time Service | NTP sync, timezone handling, popup jam akurat |
 | M5: Onboarding & Settings | 4-step wizard, volume slider, mute, location picker |
 | M6: Qibla | Compass sensor + bearing fallback |

@@ -39,7 +39,7 @@ dan proyek ini mematuhi [Semantic Versioning](https://semver.org/lang/id/).
 
 ### Ditambahkan
 
-- MVP Sholat Widget: widget tray, jadwal sholat Kemenag, pengingat + bedug
+- MVP Sholat Widget: widget tray, jadwal sholat Kemenag, pengingat + azan
 - Onboarding lokasi (otomatis / manual kota)
 - Sinkronisasi waktu NTP
 - Pengaturan volume, mute, dan autostart
