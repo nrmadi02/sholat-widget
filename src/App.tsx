@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { Popup } from "./components/Popup";
+import {
+  isPermissionGranted,
+  requestPermission,
+} from "@tauri-apps/plugin-notification";
 import { Onboarding } from "./components/Onboarding";
+import { TrayWindow } from "./components/windows/TrayWindow";
+import { MainWindow } from "./components/windows/MainWindow";
+import { ReminderWindow } from "./components/windows/ReminderWindow";
+import { useWindowLabel } from "./hooks/useWindowLabel";
+import { Toaster } from "@/components/ui/sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AppConfig {
   onboarding_done: boolean;
 }
 
 function App() {
+  const windowLabel = useWindowLabel();
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
-  const [reminder, setReminder] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<AppConfig>("get_config")
@@ -19,48 +27,55 @@ function App() {
   }, []);
 
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const unlisten = listen<string>("prayer-reminder", (event) => {
-      setReminder(event.payload);
-      if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => setReminder(null), 60000);
-    });
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      unlisten.then((fn) => fn());
-    };
+    async function ensureNotificationPermission() {
+      const granted = await isPermissionGranted();
+      if (!granted) {
+        await requestPermission();
+      }
+    }
+    ensureNotificationPermission().catch(() => {});
   }, []);
 
-  if (onboardingDone === null) {
-    return <div>Loading...</div>;
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      document.documentElement.classList.toggle("dark", mq.matches);
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  if (windowLabel === null || onboardingDone === null) {
+    return (
+      <div className="glass flex min-h-full w-full flex-col gap-4 rounded-xl p-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
   }
+
+  const renderSurface = () => {
+    if (windowLabel === "main") {
+      return <MainWindow />;
+    }
+
+    if (windowLabel === "reminder") {
+      return <ReminderWindow />;
+    }
+
+    if (!onboardingDone) {
+      return <Onboarding onDone={() => setOnboardingDone(true)} />;
+    }
+
+    return <TrayWindow />;
+  };
 
   return (
     <>
-      {reminder && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            background: "#1a7f37",
-            color: "white",
-            padding: 12,
-            textAlign: "center",
-            fontWeight: 600,
-            zIndex: 1000,
-          }}
-        >
-          🕌 Waktu {reminder} segera — dalam 5 menit!
-        </div>
-      )}
-      {!onboardingDone ? (
-        <Onboarding onDone={() => setOnboardingDone(true)} />
-      ) : (
-        <Popup />
-      )}
+      {renderSurface()}
+      <Toaster position="bottom-right" richColors closeButton />
     </>
   );
 }
