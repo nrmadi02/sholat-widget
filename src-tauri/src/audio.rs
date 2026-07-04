@@ -69,7 +69,39 @@ impl AudioPlayer {
     }
 
     pub fn play(&self, path: &PathBuf) -> Result<(), String> {
-        if *self.muted.lock().unwrap() {
+        self.play_with_options(path, None, None, false)
+    }
+
+    pub fn play_bedug(&self) -> Result<(), String> {
+        self.play_with_options(&bedug_path(), None, None, false)
+    }
+
+    pub fn play_bedug_with_options(
+        &self,
+        volume: Option<f32>,
+        muted: Option<bool>,
+    ) -> Result<(), String> {
+        self.play_with_options(&bedug_path(), volume, muted, false)
+    }
+
+    /// Blocks until playback finishes — use from a dedicated thread for test previews.
+    pub fn play_bedug_blocking(
+        &self,
+        volume: Option<f32>,
+        muted: Option<bool>,
+    ) -> Result<(), String> {
+        self.play_with_options(&bedug_path(), volume, muted, true)
+    }
+
+    fn play_with_options(
+        &self,
+        path: &PathBuf,
+        volume: Option<f32>,
+        muted: Option<bool>,
+        blocking: bool,
+    ) -> Result<(), String> {
+        let is_muted = muted.unwrap_or_else(|| *self.muted.lock().unwrap());
+        if is_muted {
             return Ok(());
         }
         let file = File::open(path).map_err(|e| format!("audio file open: {}", e))?;
@@ -77,15 +109,15 @@ impl AudioPlayer {
             Decoder::new(BufReader::new(file)).map_err(|e| format!("audio decode: {}", e))?;
 
         let sink = Sink::try_new(&self.handle).map_err(|e| format!("sink: {}", e))?;
-        let vol = *self.volume.lock().unwrap();
-        sink.set_volume(vol);
+        let vol = volume.unwrap_or_else(|| *self.volume.lock().unwrap());
+        sink.set_volume(vol.clamp(0.0, 1.0));
         sink.append(source);
-        sink.detach();
+        if blocking {
+            sink.sleep_until_end();
+        } else {
+            sink.detach();
+        }
         Ok(())
-    }
-
-    pub fn play_bedug(&self) -> Result<(), String> {
-        self.play(&bedug_path())
     }
 }
 

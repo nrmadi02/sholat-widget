@@ -57,7 +57,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   }, []);
 
   const testSound = async () => {
-    await invoke("test_sound");
+    await invoke("test_sound", { volume: volume / 100, muted });
   };
 
   const finish = async () => {

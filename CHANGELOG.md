@@ -5,6 +5,15 @@ Semua perubahan penting pada proyek ini didokumentasikan di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 dan proyek ini mematuhi [Semantic Versioning](https://semver.org/lang/id/).
 
+## [0.3.0] - 2026-07-04
+
+### Diperbaiki
+
+- Aplikasi tidak bisa quit dari menu tray — `ExitGuard` mengizinkan keluar eksplisit
+- Main window tidak update setelah onboarding selesai di tray — emit `config-updated` lintas window
+- Test bunyi tidak bersuara — audio diputar di thread terpisah dengan volume/mute dari slider onboarding
+- Build Linux CI gagal — tambah dependensi `libasound2-dev`
+
 ## [0.2.0] - 2026-07-04
 
 ### Ditambahkan

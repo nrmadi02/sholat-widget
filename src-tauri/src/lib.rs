@@ -14,6 +14,7 @@ mod updater;
 use audio::AudioPlayer;
 use cache::CacheStore;
 use config::{load_config, save_config, Config};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::path::BaseDirectory;
 use tauri::{
@@ -27,6 +28,7 @@ use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_positioner::{Position, WindowExt};
 
 struct ReminderState(Mutex<Option<String>>);
+struct ExitGuard(AtomicBool);
 
 fn show_reminder_window(app: &tauri::AppHandle, prayer: &str) {
     if let Ok(mut state) = app.state::<ReminderState>().0.lock() {
@@ -152,7 +154,7 @@ fn get_current_time() -> String {
 }
 
 #[tauri::command]
-async fn complete_onboarding(config: Config) -> Result<Config, String> {
+async fn complete_onboarding(config: Config, app: tauri::AppHandle) -> Result<Config, String> {
     let mut cfg = config;
     cfg.onboarding_done = true;
     save_config(&cfg).map_err(|e| e.to_string())?;
@@ -162,7 +164,9 @@ async fn complete_onboarding(config: Config) -> Result<Config, String> {
     if let Err(e) = schedule::refresh_schedule(&CacheStore::new()).await {
         log::warn!("schedule refresh failed during onboarding: {e}");
     }
-    Ok(load_config())
+    let saved = load_config();
+    let _ = app.emit("config-updated", &saved);
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -180,8 +184,17 @@ async fn get_today_schedule() -> Result<Option<models::JadwalEntry>, String> {
 }
 
 #[tauri::command]
-fn test_sound() -> Result<(), String> {
-    AudioPlayer::from_config().play_bedug()
+fn test_sound(volume: Option<f32>, muted: Option<bool>) -> Result<(), String> {
+    std::thread::spawn(move || {
+        let player = AudioPlayer::new();
+        if volume.is_none() || muted.is_none() {
+            player.sync_from_config();
+        }
+        if let Err(e) = player.play_bedug_blocking(volume, muted) {
+            log::warn!("test_sound gagal: {e}");
+        }
+    });
+    Ok(())
 }
 
 #[tauri::command]
@@ -227,6 +240,7 @@ fn handle_close_request(window: &tauri::Window, api: &tauri::CloseRequestApi) {
 pub fn run() {
     let mut app = tauri::Builder::default()
         .manage(ReminderState(Mutex::new(None)))
+        .manage(ExitGuard(AtomicBool::new(false)))
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             focus_running_instance(app);
@@ -270,7 +284,12 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .tooltip("Sholat Widget")
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "quit" => app.exit(0),
+                    "quit" => {
+                        app.state::<ExitGuard>()
+                            .0
+                            .store(true, Ordering::SeqCst);
+                        app.exit(0);
+                    }
                     "settings" => {
                         let _ = show_tray_window(app);
                     }
@@ -379,9 +398,15 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-    app.run(|_app_handle, event| {
+    app.run(|app_handle, event| {
         if let RunEvent::ExitRequested { api, .. } = event {
-            api.prevent_exit();
+            let allow = app_handle
+                .try_state::<ExitGuard>()
+                .map(|guard| guard.0.load(Ordering::SeqCst))
+                .unwrap_or(false);
+            if !allow {
+                api.prevent_exit();
+            }
         }
     });
 }

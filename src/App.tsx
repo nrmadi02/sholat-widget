@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { CONFIG_UPDATED_EVENT } from "@/hooks/useConfig";
 import {
   isPermissionGranted,
   requestPermission,
@@ -24,6 +26,17 @@ function App() {
     invoke<AppConfig>("get_config")
       .then((cfg) => setOnboardingDone(cfg.onboarding_done))
       .catch(() => setOnboardingDone(false));
+
+    let unlisten: (() => void) | undefined;
+    listen<AppConfig>(CONFIG_UPDATED_EVENT, (event) => {
+      setOnboardingDone(event.payload.onboarding_done);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      unlisten?.();
+    };
   }, []);
 
   useEffect(() => {

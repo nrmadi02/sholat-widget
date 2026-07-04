@@ -1,6 +1,6 @@
 [package]
 name = "sholat-widget"
-version = "0.2.0"
+version = "0.3.0"
 description = "Sholat Widget - prayer time reminder"
 authors = ["you"]
 license = ""
