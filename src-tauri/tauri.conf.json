@@ -10,16 +10,47 @@
     "beforeBuildCommand": "bun run build"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
-        "label": "main",
+        "label": "tray",
         "title": "Sholat Widget",
         "width": 320,
-        "height": 440,
+        "height": 480,
         "resizable": false,
         "decorations": false,
         "transparent": true,
-        "visible": true
+        "visible": false,
+        "alwaysOnTop": true,
+        "shadow": false,
+        "skipTaskbar": true
+      },
+      {
+        "label": "main",
+        "title": "Sholat Widget",
+        "width": 920,
+        "height": 640,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "visible": false,
+        "alwaysOnTop": false,
+        "center": true,
+        "skipTaskbar": true
+      },
+      {
+        "label": "reminder",
+        "title": "Pengingat Sholat",
+        "width": 340,
+        "height": 220,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "visible": false,
+        "alwaysOnTop": true,
+        "shadow": false,
+        "center": true,
+        "skipTaskbar": true
       }
     ],
     "security": {
