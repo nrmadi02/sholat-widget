@@ -21,6 +21,10 @@ pub struct Config {
     pub muted: bool,
     pub reminder_offset_minutes: i32,
     pub auto_launch: bool,
+    #[serde(default)]
+    pub last_update_check_at: Option<i64>,
+    #[serde(default)]
+    pub update_dismissed_version: Option<String>,
 }
 
 impl Default for Config {
@@ -36,6 +40,8 @@ impl Default for Config {
             muted: false,
             reminder_offset_minutes: -5,
             auto_launch: true,
+            last_update_check_at: None,
+            update_dismissed_version: None,
         }
     }
 }

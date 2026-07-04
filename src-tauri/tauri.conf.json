@@ -1,13 +1,25 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "sholat-widget",
-  "version": "0.1.0",
+  "productName": "Sholat Widget",
+  "version": "0.2.0",
   "identifier": "com.sholatwidget.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "bun run build"
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4RjNBRERGNzY1NDc1ODkKUldTSmRWUjIzNjN6NkVQTXpTUUh4a055RGd3bm5FRTVxYlhrV3FxTFJjeWk2c0dsTFZoS3lmS1YK",
+      "endpoints": [
+        "https://github.com/nrmadi02/sholat-widget/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   },
   "app": {
     "macOSPrivateApi": true,
@@ -59,6 +71,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "resources": {
       "assets/sounds/bedug.mp3": "sounds/bedug.mp3",

@@ -1,6 +1,6 @@
 [package]
 name = "sholat-widget"
-version = "0.1.0"
+version = "0.2.0"
 description = "Sholat Widget - prayer time reminder"
 authors = ["you"]
 license = ""
@@ -37,3 +37,7 @@ tauri-plugin-single-instance = "2.4.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
+tauri-plugin-process = "2.3.1"
+tauri-plugin-updater = "2.10.1"

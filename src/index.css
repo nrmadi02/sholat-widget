@@ -156,6 +156,7 @@ body {
   }
 
   .animate-popup-enter {
+    transform-origin: top center;
     animation: popup-enter 0.2s var(--ease-snap) both;
   }
 
@@ -190,11 +191,20 @@ body {
 @keyframes popup-enter {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(-12px) scale(0.97);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes popup-enter-reduced {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -211,11 +221,14 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-popup-enter,
-  .animate-app-enter,
   .popup-stagger-1,
   .popup-stagger-2,
   .popup-stagger-3,
   .popup-stagger-4 {
+    animation: popup-enter-reduced 0.15s var(--ease-snap) both;
+  }
+
+  .animate-app-enter {
     animation: none;
   }
 }

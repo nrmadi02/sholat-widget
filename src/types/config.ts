@@ -9,4 +9,6 @@ export interface AppConfig {
   muted: boolean;
   reminder_offset_minutes: number;
   auto_launch: boolean;
+  last_update_check_at?: number | null;
+  update_dismissed_version?: string | null;
 }

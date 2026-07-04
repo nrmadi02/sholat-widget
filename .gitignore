@@ -2,3 +2,5 @@
 /src-tauri/target
 /dist
 .DS_Store
+*.key
+.env

@@ -9,6 +9,7 @@ pub mod models;
 mod schedule;
 mod scheduler;
 mod time;
+mod updater;
 
 use audio::AudioPlayer;
 use cache::CacheStore;
@@ -66,7 +67,8 @@ fn toggle_tray_window(app: &tauri::AppHandle) -> Result<(), String> {
         .get_webview_window("tray")
         .ok_or("tray window not found")?;
     if win.is_visible().map_err(|e| e.to_string())? {
-        win.hide().map_err(|e| e.to_string())?;
+        win.emit("tray-hide-requested", ())
+            .map_err(|e| e.to_string())?;
     } else {
         show_tray_window(app)?;
     }
@@ -78,10 +80,6 @@ fn open_main_window(app: tauri::AppHandle) -> Result<(), String> {
     let cfg = load_config();
     if !cfg.onboarding_done {
         return Err("Selesaikan onboarding terlebih dahulu.".into());
-    }
-
-    if let Some(tray) = app.get_webview_window("tray") {
-        let _ = tray.hide();
     }
 
     let win = app
@@ -229,6 +227,7 @@ fn handle_close_request(window: &tauri::Window, api: &tauri::CloseRequestApi) {
 pub fn run() {
     let mut app = tauri::Builder::default()
         .manage(ReminderState(Mutex::new(None)))
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             focus_running_instance(app);
         }))
@@ -238,6 +237,8 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updater::PendingUpdate(Mutex::new(None)))
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 handle_close_request(window, api);
@@ -351,6 +352,8 @@ pub fn run() {
                 }
             });
 
+            updater::schedule_startup_check(app.handle().clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -366,6 +369,9 @@ pub fn run() {
             hide_main_window_cmd,
             get_pending_reminder,
             close_reminder_window,
+            updater::get_app_version,
+            updater::check_update,
+            updater::install_update,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Volume2, VolumeX } from "lucide-react";
+import { RefreshCw, Volume2, VolumeX } from "lucide-react";
 import { LocationPicker } from "./LocationPicker";
 import type { AppConfig } from "@/types/config";
+import { useUpdate, formatLastCheck } from "@/hooks/useUpdate";
+import changelogRaw from "../../CHANGELOG.md?raw";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,6 +32,13 @@ export function Settings({
 }) {
   const [cfg, setCfg] = useState<AppConfig>(config);
   const [error, setError] = useState<string | null>(null);
+  const {
+    currentVersion,
+    updateInfo,
+    status: updateStatus,
+    error: updateError,
+    checkUpdate,
+  } = useUpdate(cfg);
 
   // Sync local state when config changes from another window
   useEffect(() => {
@@ -140,6 +149,65 @@ export function Settings({
                     aria-label="Mulai saat komputer dinyalakan"
                   />
                 </Field>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Tentang</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Versi saat ini</p>
+                    <p className="font-mono font-medium">v{currentVersion}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Versi terbaru</p>
+                    <p className="font-mono font-medium">
+                      {updateInfo && updateInfo.version !== currentVersion
+                        ? `v${updateInfo.version}`
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Pemeriksaan terakhir: {formatLastCheck(cfg.last_update_check_at)}
+                </p>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => checkUpdate(true)}
+                  disabled={updateStatus === "checking"}
+                  className="w-full"
+                >
+                  <RefreshCw
+                    data-icon="inline-start"
+                    className={updateStatus === "checking" ? "animate-spin" : ""}
+                  />
+                  {updateStatus === "checking" ? "Memeriksa..." : "Periksa Update"}
+                </Button>
+
+                {updateStatus === "idle" && updateInfo === null && cfg.last_update_check_at && (
+                  <p className="text-xs text-emerald-600">Anda menggunakan versi terbaru.</p>
+                )}
+
+                {updateError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{updateError}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="max-h-48 overflow-y-auto rounded-lg border bg-muted/20 px-3 py-2">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Riwayat perubahan
+                  </p>
+                  <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground">
+                    {changelogRaw.replace(/^# Changelog\n\n/, "")}
+                  </pre>
+                </div>
               </CardContent>
             </Card>
 

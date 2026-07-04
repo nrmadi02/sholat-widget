@@ -11,6 +11,9 @@ import { useLiveClock } from "@/hooks/useTauriCommand";
 import { useConfig } from "@/hooks/useConfig";
 import { useSchedule } from "@/hooks/useSchedule";
 import { Settings } from "@/components/Settings";
+import { UpdateDialog } from "@/components/UpdateDialog";
+import { UpdateBadge } from "@/components/UpdateBadge";
+import { useUpdate } from "@/hooks/useUpdate";
 import { PrayerRow } from "@/components/PrayerRow";
 import { MosqueIcon } from "@/components/icons/Mosque";
 import type { AppConfig } from "@/types/config";
@@ -25,13 +28,31 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export function MainWindow() {
   const clock = useLiveClock();
   const { config: activeConfig, error: configError } = useConfig();
-  const { schedule, scheduleError, loading, reload } = useSchedule(activeConfig?.city_id);
+  const { schedule, scheduleError, loading, reload } = useSchedule(
+    activeConfig?.city_id,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const {
+    updateInfo,
+    status: updateStatus,
+    error: updateError,
+    progress,
+    hasUpdate,
+    dismissUpdate,
+    installUpdate,
+    formatBytes,
+  } = useUpdate(activeConfig);
   const next = schedule ? findNextPrayer(schedule, clock) : null;
   const displayTime = clock.slice(0, 5);
   const timezone = activeConfig?.timezone ?? "Asia/Jakarta";
@@ -87,17 +108,30 @@ export function MainWindow() {
                 Sholat Widget
               </p>
               <p className="text-xs text-primary">
-                {activeConfig.city_name} · {formatTimezoneLabel(timezone)} · Widget aktif
+                {activeConfig.city_name} · {formatTimezoneLabel(timezone)} ·
+                Widget aktif
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={reload} aria-label="Refresh jadwal">
+            {hasUpdate && (
+              <UpdateBadge onClick={() => setUpdateDialogOpen(true)} />
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={reload}
+              aria-label="Refresh jadwal"
+            >
               <RefreshCw data-icon="inline-start" />
               Refresh
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSettingsOpen(true)}
+            >
               <SettingsIcon data-icon="inline-start" />
               Settings
             </Button>
@@ -120,7 +154,12 @@ export function MainWindow() {
                 Mute
               </Badge>
             )}
-            <Button variant="ghost" size="icon-sm" onClick={closeWindow} aria-label="Tutup">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={closeWindow}
+              aria-label="Tutup"
+            >
               <X />
             </Button>
           </div>
@@ -145,11 +184,13 @@ export function MainWindow() {
                 Sholat selanjutnya
               </p>
               <div className="mt-1 flex items-center gap-2">
-                <next.icon className="text-primary" />
-                <div>
-                  <p className="font-display text-2xl font-semibold tracking-tight">
-                    {next.label}
-                  </p>
+                <div className="flex items-end flex-col">
+                  <div className="flex items-center gap-2">
+                    <next.icon className="text-primary" />
+                    <p className="font-display text-2xl font-semibold tracking-tight">
+                      {next.label}
+                    </p>
+                  </div>
                   <p className="font-mono text-xl tabular-nums text-primary">
                     {next.time} ·{" "}
                     <span className="font-semibold" aria-live="polite">
@@ -212,6 +253,18 @@ export function MainWindow() {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         onSaved={() => reload()}
+      />
+
+      <UpdateDialog
+        open={updateDialogOpen}
+        onOpenChange={setUpdateDialogOpen}
+        updateInfo={updateInfo}
+        status={updateStatus}
+        error={updateError}
+        progress={progress}
+        formatBytes={formatBytes}
+        onInstall={() => installUpdate()}
+        onDismiss={() => dismissUpdate()}
       />
     </>
   );
