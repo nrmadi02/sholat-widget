@@ -20,6 +20,10 @@
     "notification:allow-notify",
     "notification:allow-request-permission",
     "notification:allow-is-permission-granted",
+    "notification:allow-register-action-types",
+    "notification:allow-register-listener",
+    "notification:allow-remove-active",
+    "notification:allow-get-active",
     "positioner:default",
     "updater:default",
     "process:default"

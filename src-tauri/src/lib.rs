@@ -12,7 +12,6 @@ mod time;
 mod tray_position;
 mod updater;
 
-use audio::AudioPlayer;
 use cache::CacheStore;
 use config::{load_config, save_config, Config};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -24,16 +23,111 @@ use tauri::{
     Emitter, Manager, RunEvent, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use serde::Serialize;
 use tauri_plugin_notification::NotificationExt;
 use tray_position::{TrayRectState, update_from_tray_event};
 
-struct ReminderState(Mutex<Option<String>>);
+#[derive(Debug, Clone, Serialize)]
+pub struct ActiveReminder {
+    pub prayer: String,
+    pub prayer_hour: u32,
+    pub prayer_min: u32,
+    pub azan_playing: bool,
+    pub azan_started_at_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReminderContext {
+    pub prayer: String,
+    pub seconds_until_prayer: i64,
+    pub azan_playing: bool,
+    pub azan_started_at_ms: Option<i64>,
+}
+
+struct ReminderState(Mutex<Option<ActiveReminder>>);
+struct AzanPlaybackLocked(Mutex<bool>);
 struct ExitGuard(AtomicBool);
 
-fn show_reminder_window(app: &tauri::AppHandle, prayer: &str) {
+const PRAYER_REMINDER_NOTIFICATION_ID: i32 = 1001;
+
+fn set_active_reminder(app: &tauri::AppHandle, reminder: ActiveReminder) {
     if let Ok(mut state) = app.state::<ReminderState>().0.lock() {
-        *state = Some(prayer.to_string());
+        *state = Some(reminder);
     }
+}
+
+fn get_active_reminder(app: &tauri::AppHandle) -> Option<ActiveReminder> {
+    app.state::<ReminderState>()
+        .0
+        .lock()
+        .ok()
+        .and_then(|s| s.clone())
+}
+
+fn is_azan_playback_locked(app: &tauri::AppHandle) -> bool {
+    app.try_state::<AzanPlaybackLocked>()
+        .map(|s| *s.0.lock().unwrap_or_else(|e| e.into_inner()))
+        .unwrap_or(false)
+}
+
+fn set_azan_playback_locked(app: &tauri::AppHandle, locked: bool) {
+    if let Some(state) = app.try_state::<AzanPlaybackLocked>() {
+        *state.0.lock().unwrap_or_else(|e| e.into_inner()) = locked;
+    }
+}
+
+fn dismiss_reminder_window(app: &tauri::AppHandle) -> Result<(), String> {
+    if is_azan_playback_locked(app) {
+        return Err("Tidak bisa menutup saat azan sedang diputar.".into());
+    }
+
+    if let Ok(mut state) = app.state::<ReminderState>().0.lock() {
+        *state = None;
+    }
+
+    if let Some(win) = app.get_webview_window("reminder") {
+        win.hide().map_err(|e| e.to_string())?;
+    }
+
+    let _ = app.emit("reminder-dismissed", ());
+    Ok(())
+}
+
+fn mark_azan_stopped(app: &tauri::AppHandle) {
+    set_azan_playback_locked(app, false);
+    if let Ok(mut state) = app.state::<ReminderState>().0.lock() {
+        if let Some(reminder) = state.as_mut() {
+            reminder.azan_playing = false;
+            reminder.azan_started_at_ms = None;
+        }
+    }
+    let _ = app.emit("azan-stopped", ());
+}
+
+fn clear_reminder_session(app: &tauri::AppHandle) {
+    audio::stop_preview();
+    mark_azan_stopped(app);
+
+    if let Ok(mut state) = app.state::<ReminderState>().0.lock() {
+        *state = None;
+    }
+
+    if let Some(win) = app.get_webview_window("reminder") {
+        let _ = win.hide();
+    }
+
+    let _ = app.emit("reminder-cleared", ());
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+fn show_reminder_window(app: &tauri::AppHandle, reminder: ActiveReminder) {
+    set_active_reminder(app, reminder);
     if let Some(win) = app.get_webview_window("reminder") {
         let _ = win.show();
         let _ = win.set_focus();
@@ -183,32 +277,96 @@ fn get_azan_duration_ms() -> Result<u64, String> {
 }
 
 #[tauri::command]
-fn test_sound(volume: Option<f32>, muted: Option<bool>) -> Result<(), String> {
-    if let Err(e) = audio::start_preview(volume, muted) {
+fn test_sound(
+    app: tauri::AppHandle,
+    volume: Option<f32>,
+    muted: Option<bool>,
+) -> Result<(), String> {
+    let cfg = load_config();
+    let is_muted = muted.unwrap_or(cfg.muted);
+    if let Err(e) = audio::start_preview(volume, Some(is_muted)) {
         log::warn!("test_sound gagal: {e}");
         return Err(e);
     }
+
+    if !is_muted && get_active_reminder(&app).is_some() {
+        set_azan_playback_locked(&app, true);
+        if let Ok(mut state) = app.state::<ReminderState>().0.lock() {
+            if let Some(reminder) = state.as_mut() {
+                reminder.azan_playing = true;
+                reminder.azan_started_at_ms = Some(now_ms());
+            }
+        }
+    }
+
     Ok(())
 }
 
 #[tauri::command]
-fn stop_test_sound() -> Result<(), String> {
+fn stop_test_sound(app: tauri::AppHandle) -> Result<(), String> {
     audio::stop_preview();
+    mark_azan_stopped(&app);
     Ok(())
 }
 
 #[tauri::command]
-fn get_pending_reminder(state: tauri::State<ReminderState>) -> Option<String> {
+fn get_pending_reminder(state: tauri::State<ReminderState>) -> Option<ActiveReminder> {
     state.0.lock().ok().and_then(|s| s.clone())
 }
 
 #[tauri::command]
-fn close_reminder_window(app: tauri::AppHandle, state: tauri::State<ReminderState>) {
-    if let Ok(mut s) = state.0.lock() {
-        *s = None;
+fn get_reminder_context(app: tauri::AppHandle) -> Option<ReminderContext> {
+    let active = get_active_reminder(&app)?;
+    let cfg = load_config();
+    let ts = time::TimeService::new(&cfg.timezone);
+    let now = ts.now_local();
+    let seconds = time::seconds_until_prayer(now, active.prayer_hour, active.prayer_min)?;
+    Some(ReminderContext {
+        prayer: active.prayer,
+        seconds_until_prayer: seconds,
+        azan_playing: active.azan_playing,
+        azan_started_at_ms: active.azan_started_at_ms,
+    })
+}
+
+#[tauri::command]
+fn clear_reminder_session_cmd(app: tauri::AppHandle) {
+    clear_reminder_session(&app);
+}
+
+#[tauri::command]
+fn close_reminder_window(app: tauri::AppHandle) -> Result<(), String> {
+    dismiss_reminder_window(&app)
+}
+
+#[tauri::command]
+fn set_azan_playback_locked_cmd(app: tauri::AppHandle, locked: bool) {
+    set_azan_playback_locked(&app, locked);
+}
+
+#[tauri::command]
+fn open_notification_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.Notifications-Settings.extension")
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
     }
-    if let Some(win) = app.get_webview_window("reminder") {
-        let _ = win.hide();
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start ms-settings:notifications"])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        Err("Pengaturan notifikasi tidak tersedia di platform ini.".into())
     }
 }
 
@@ -240,6 +398,7 @@ fn handle_close_request(window: &tauri::Window, api: &tauri::CloseRequestApi) {
 pub fn run() {
     let mut app = tauri::Builder::default()
         .manage(ReminderState(Mutex::new(None)))
+        .manage(AzanPlaybackLocked(Mutex::new(false)))
         .manage(ExitGuard(AtomicBool::new(false)))
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -256,6 +415,16 @@ pub fn run() {
         .manage(TrayRectState(Mutex::new(None)))
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "reminder" {
+                    let app = window.app_handle();
+                    if is_azan_playback_locked(&app) {
+                        api.prevent_close();
+                        return;
+                    }
+                    let _ = dismiss_reminder_window(&app);
+                    api.prevent_close();
+                    return;
+                }
                 handle_close_request(window, api);
             }
         })
@@ -353,26 +522,63 @@ pub fn run() {
 
             let ts_clone = time_service.clone();
             let app_handle = app.handle().clone();
-            let on_remind = Arc::new(move |kind: models::PrayerKind| {
-                // Show standalone reminder window
-                show_reminder_window(&app_handle, kind.label());
+            let remind_app = app_handle.clone();
+            let on_remind = Arc::new(move |kind: models::PrayerKind, hour: u32, min: u32| {
+                let cfg = load_config();
+                let azan_playing = !cfg.muted;
+                let azan_started_at_ms = azan_playing.then_some(now_ms());
 
-                // Native OS notification as fallback (screen off / lock screen)
-                let body = format!("Sudah masuk waktu sholat {}", kind.label());
-                if let Err(e) = app_handle
+                if azan_playing {
+                    if let Err(e) = audio::start_preview(None, None) {
+                        log::warn!("gagal memutar azan pengingat: {e}");
+                    } else {
+                        set_azan_playback_locked(&remind_app, true);
+                    }
+                }
+
+                show_reminder_window(
+                    &remind_app,
+                    ActiveReminder {
+                        prayer: kind.label().to_string(),
+                        prayer_hour: hour,
+                        prayer_min: min,
+                        azan_playing,
+                        azan_started_at_ms,
+                    },
+                );
+
+                let body = format!("1 menit lagi waktu sholat {}", kind.label());
+                if let Err(e) = remind_app
                     .notification()
                     .builder()
-                    .title("Sholat Widget")
+                    .id(PRAYER_REMINDER_NOTIFICATION_ID)
+                    .title("Pengingat Sholat")
                     .body(&body)
                     .show()
                 {
                     log::warn!("gagal kirim notifikasi: {e}");
                 }
+
+                let _ = remind_app.emit("prayer-reminder", kind.label());
+            });
+
+            let clear_app = app_handle.clone();
+            let on_clear = Arc::new(move || clear_reminder_session(&clear_app));
+
+            let active_app = app_handle.clone();
+            let active_reminder = Arc::new(move || {
+                get_active_reminder(&active_app).map(|r| (r.prayer_hour, r.prayer_min))
             });
 
             std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new().expect("scheduler runtime");
-                rt.block_on(scheduler::run_scheduler(ts_clone, cache, on_remind));
+                rt.block_on(scheduler::run_scheduler(
+                    ts_clone,
+                    cache,
+                    on_remind,
+                    on_clear,
+                    active_reminder,
+                ));
             });
 
             let ts_bg = time_service.clone();
@@ -402,7 +608,11 @@ pub fn run() {
             hide_tray_window,
             hide_main_window_cmd,
             get_pending_reminder,
+            get_reminder_context,
+            clear_reminder_session_cmd,
             close_reminder_window,
+            set_azan_playback_locked_cmd,
+            open_notification_settings,
             updater::get_app_version,
             updater::check_update,
             updater::install_update,
