@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Check, MapPin, Play, Square, Volume2 } from "lucide-react";
+import { Bell, Check, MapPin, Play, Square, Volume2 } from "lucide-react";
 import type { AppConfig } from "@/types/config";
 import { MosqueIcon } from "./icons/Mosque";
 import { cn } from "@/lib/utils";
@@ -34,13 +34,19 @@ import {
 } from "@/components/ui/command";
 import { Spinner } from "@/components/ui/spinner";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  hasNotificationPermission,
+  openNotificationSettings,
+  requestNotificationPermission,
+} from "@/lib/notifications";
 
 interface City {
   id: string;
   lokasi: string;
 }
 
-const STEPS = ["Selamat datang", "Lokasi", "Audio", "Selesai"];
+const STEPS = ["Pengingat", "Lokasi", "Suara", "Selesai"];
 
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
@@ -52,12 +58,35 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [volume, setVolume] = useState(70);
   const [muted, setMuted] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [soundPlaying, setSoundPlaying] = useState(false);
   const [soundProgress, setSoundProgress] = useState(0);
   const soundTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const soundStartedAtRef = useRef(0);
   const soundStoppedRef = useRef(false);
+
+  useEffect(() => {
+    hasNotificationPermission()
+      .then(setPermissionGranted)
+      .catch(() => setPermissionGranted(false));
+  }, []);
+
+  const enableNotifications = async () => {
+    setPermissionError(null);
+    const granted = await requestNotificationPermission();
+    setPermissionGranted(granted);
+    if (granted) {
+      setNotificationsEnabled(true);
+      return;
+    }
+    setNotificationsEnabled(false);
+    setPermissionError(
+      "Izin notifikasi belum diberikan. Aktifkan di Pengaturan Sistem terlebih dahulu.",
+    );
+  };
 
   const searchCities = useCallback(async (q: string) => {
     setCityQuery(q);
@@ -164,7 +193,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       last_lat_long: null,
       volume: volume / 100,
       muted,
-      reminder_offset_minutes: -5,
+      notifications_enabled: notificationsEnabled && permissionGranted,
+      reminder_offset_minutes: -1,
       auto_launch: true,
     };
     await invoke("complete_onboarding", { config: cfg });
@@ -207,22 +237,72 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
       <div className="flex flex-1 flex-col gap-4 px-6 py-5">
         {step === 0 && (
-          <Card className="border-0 bg-transparent shadow-none">
-            <CardHeader className="px-4!">
-              <CardTitle className="font-display text-lg">
-                Selamat datang
-              </CardTitle>
-              <CardDescription>
-                Anda akan diberi tahu 5 menit sebelum setiap waktu sholat dengan
-                notifikasi dan suara azan.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-4!">
-              <Button className="w-full" onClick={() => setStep(1)}>
-                Lanjut
-              </Button>
-            </CardContent>
-          </Card>
+          <FieldGroup>
+            <Card className="border-0 bg-transparent shadow-none">
+              <CardHeader className="px-4!">
+                <CardTitle className="font-display text-lg">
+                  Selamat datang
+                </CardTitle>
+                <CardDescription>
+                  Sholat Widget memberi pengingat 1 menit sebelum setiap waktu
+                  sholat — lewat popup dan notifikasi sistem.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Field orientation="horizontal">
+              <div className="flex flex-1 flex-col gap-0.5">
+                <FieldLabel className="flex items-center gap-2">
+                  <Bell className="size-4" />
+                  Aktifkan pengingat sholat
+                </FieldLabel>
+                <p className="text-xs text-muted-foreground">
+                  Wajib izinkan notifikasi di pengaturan sistem agar pengingat
+                  bisa berjalan otomatis.
+                </p>
+              </div>
+              <Switch
+                checked={notificationsEnabled && permissionGranted}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    void enableNotifications();
+                  } else {
+                    setNotificationsEnabled(false);
+                    setPermissionError(null);
+                  }
+                }}
+                aria-label="Aktifkan pengingat sholat"
+              />
+            </Field>
+
+            {permissionError && (
+              <Alert variant="destructive">
+                <AlertDescription className="flex flex-col gap-2">
+                  <span>{permissionError}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => void openNotificationSettings()}
+                  >
+                    Buka Pengaturan Sistem
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {notificationsEnabled && permissionGranted && (
+              <Alert>
+                <AlertDescription className="text-emerald-700 dark:text-emerald-300">
+                  Pengingat siap aktif setelah setup selesai.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <Button className="w-full" onClick={() => setStep(1)}>
+              Lanjut
+            </Button>
+          </FieldGroup>
         )}
 
         {step === 1 && (
@@ -356,7 +436,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
                       {muted
-                        ? "Notifikasi dibisukan — tidak ada suara"
+                        ? "Suara dibisukan — tidak ada bunyi"
                         : "Memutar suara azan..."}
                     </p>
                     {!muted && (
@@ -376,11 +456,11 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             </div>
 
             <Field orientation="horizontal">
-              <FieldLabel>Bisukan notifikasi</FieldLabel>
+              <FieldLabel>Bisukan suara azan</FieldLabel>
               <Switch
                 checked={muted}
                 onCheckedChange={setMuted}
-                aria-label="Bisukan"
+                aria-label="Bisukan suara azan"
               />
             </Field>
 
@@ -393,12 +473,25 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         {step === 3 && (
           <Card className="border-0 bg-transparent shadow-none">
             <CardHeader className="px-4! text-center">
-              <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-emerald-600/10 text-emerald-600">
-                <Check className="size-5" />
+              <div
+                className={cn(
+                  "mx-auto mb-2 flex size-10 items-center justify-center rounded-full",
+                  notificationsEnabled && permissionGranted
+                    ? "bg-emerald-600/10 text-emerald-600"
+                    : "bg-amber-500/10 text-amber-600",
+                )}
+              >
+                {notificationsEnabled && permissionGranted ? (
+                  <Check className="size-5" />
+                ) : (
+                  <Bell className="size-5" />
+                )}
               </div>
               <CardTitle className="font-display text-lg">Selesai</CardTitle>
               <CardDescription>
-                Pengingat aktif. Anda akan diberi tahu 5 menit sebelum sholat.
+                {notificationsEnabled && permissionGranted
+                  ? "Pengingat sholat aktif. Anda akan diberi tahu 1 menit sebelum waktu sholat."
+                  : "Pengingat belum aktif. Buka Pengaturan → Aktifkan pengingat setelah mengizinkan notifikasi di sistem."}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-4!">
