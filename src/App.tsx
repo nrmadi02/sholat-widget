@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { onAction } from "@tauri-apps/plugin-notification";
 import { CONFIG_UPDATED_EVENT } from "@/hooks/useConfig";
-import {
-  isPermissionGranted,
-  requestPermission,
-} from "@tauri-apps/plugin-notification";
 import { Onboarding } from "./components/Onboarding";
 import { TrayWindow } from "./components/windows/TrayWindow";
 import { MainWindow } from "./components/windows/MainWindow";
@@ -13,6 +10,10 @@ import { ReminderWindow } from "./components/windows/ReminderWindow";
 import { useWindowLabel } from "./hooks/useWindowLabel";
 import { Toaster } from "@/components/ui/sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  clearPrayerReminderNotification,
+  ensureAzanNotificationActions,
+} from "@/lib/notifications";
 
 interface AppConfig {
   onboarding_done: boolean;
@@ -40,13 +41,33 @@ function App() {
   }, []);
 
   useEffect(() => {
-    async function ensureNotificationPermission() {
-      const granted = await isPermissionGranted();
-      if (!granted) {
-        await requestPermission();
+    let actionListener: { unregister: () => Promise<void> } | undefined;
+    let clearedUnlisten: (() => void) | undefined;
+
+    ensureAzanNotificationActions().catch(() => {});
+
+    onAction((notification) => {
+      const actionId =
+        (notification as { actionId?: string }).actionId ??
+        (notification.extra as { actionId?: string } | undefined)?.actionId;
+      if (actionId === "stop") {
+        void invoke("stop_test_sound");
+        void clearPrayerReminderNotification();
       }
-    }
-    ensureNotificationPermission().catch(() => {});
+    }).then((listener) => {
+      actionListener = listener;
+    });
+
+    listen("reminder-cleared", () => {
+      void clearPrayerReminderNotification();
+    }).then((fn) => {
+      clearedUnlisten = fn;
+    });
+
+    return () => {
+      void actionListener?.unregister();
+      clearedUnlisten?.();
+    };
   }, []);
 
   useEffect(() => {
