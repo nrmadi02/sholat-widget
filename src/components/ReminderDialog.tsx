@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Bell } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +19,7 @@ export function ReminderDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const playSound = async () => {
+  const replaySound = async () => {
     await invoke("test_sound");
   };
 
@@ -27,18 +27,17 @@ export function ReminderDialog({
     <Dialog open={open} onOpenChange={onOpenChange} modal>
       <DialogContent showCloseButton={false} className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bell className="text-primary" data-icon="inline-start" />
-            Pengingat sholat
-          </DialogTitle>
+          <DialogTitle>Pengingat sholat</DialogTitle>
           <DialogDescription>
-            Waktu {prayer} segera. Dalam 5 menit.
+            Waktu {prayer} dalam 1 menit. Azan berbunyi otomatis saat popup
+            muncul.
           </DialogDescription>
         </DialogHeader>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
-          <Button onClick={playSound} className="w-full">
-            Dengar azan
+          <Button onClick={replaySound} className="w-full">
+            <RotateCcw data-icon="inline-start" />
+            Putar ulang
           </Button>
           <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full">
             Tutup

@@ -7,7 +7,7 @@ import {
   useReducedMotion,
   type Variants,
 } from "motion/react";
-import { AppWindow, CheckCircle2 } from "lucide-react";
+import { AlertCircle, AppWindow, CheckCircle2, Settings2 } from "lucide-react";
 import { useLiveClock } from "@/hooks/useTauriCommand";
 import { useConfig } from "@/hooks/useConfig";
 import { useSchedule } from "@/hooks/useSchedule";
@@ -148,6 +148,7 @@ export function TrayWindow() {
   }, [controls, enterVariant, requestHide, settingsOpen]);
 
   const next = schedule ? findNextPrayer(schedule, clock) : null;
+  const reminderActive = Boolean(activeConfig?.notifications_enabled);
   const displayTime = clock.slice(0, 5);
   const timezone = activeConfig?.timezone ?? "Asia/Jakarta";
 
@@ -200,9 +201,20 @@ export function TrayWindow() {
               </p>
             )}
           </div>
-          {hasUpdate && (
-            <UpdateBadge compact onClick={() => setUpdateDialogOpen(true)} />
-          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {hasUpdate && (
+              <UpdateBadge compact onClick={() => setUpdateDialogOpen(true)} />
+            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-7 text-muted-foreground"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Pengaturan"
+            >
+              <Settings2 className="size-3.5" />
+            </Button>
+          </div>
         </motion.header>
 
         {/* ── Live Clock ─────────────────────────────────────────── */}
@@ -257,10 +269,26 @@ export function TrayWindow() {
                 </div>
               </div>
 
-              <p className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-emerald-600">
-                <CheckCircle2 className="size-3.5 shrink-0" />
-                Akan ada pengingat + azan
-              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!reminderActive) setSettingsOpen(true);
+                }}
+                className={`mt-3 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px] font-medium transition-colors ${
+                  reminderActive
+                    ? "text-emerald-600"
+                    : "text-amber-600 hover:bg-amber-500/10"
+                }`}
+              >
+                {reminderActive ? (
+                  <CheckCircle2 className="size-3.5 shrink-0" />
+                ) : (
+                  <AlertCircle className="size-3.5 shrink-0" />
+                )}
+                {reminderActive
+                  ? "Pengingat aktif — 1 menit sebelum sholat"
+                  : "Pengingat nonaktif — ketuk untuk aktifkan"}
+              </button>
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
