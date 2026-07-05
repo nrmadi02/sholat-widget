@@ -4,9 +4,9 @@
 
 | Field     | Value                              |
 | --------- | ---------------------------------- |
-| Versi     | 1.0                                |
-| Tanggal   | 4 Juli 2026                        |
-| Status    | MVP 1 — Tercapai                   |
+| Versi     | 1.1                                |
+| Tanggal   | 5 Juli 2026                        |
+| Status    | MVP 1 + UX Pengingat v2            |
 | Penulis   | Tim Sholat Widget                  |
 | Repo      | `sholat-widget` (Tauri v2 + React) |
 
@@ -16,8 +16,8 @@
 
 **Sholat Widget** adalah aplikasi desktop pengingat waktu sholat untuk pengguna
 Muslim di Indonesia. Aplikasi berjalan di _system tray_, menampilkan jadwal
-sholat harian dari Kemenag, dan memberi pengingat (notifikasi + suara azan)
-beberapa menit sebelum setiap waktu sholat masuk.
+sholat harian dari Kemenag, dan memberi **pengingat sholat** (popup + notifikasi
+OS + suara azan) **1 menit** sebelum setiap waktu sholat masuk.
 
 Aplikasi dibangun dengan **Tauri v2** (Rust) sebagai backend dan **React 19 +
 TypeScript** sebagai frontend, menggabungkan kecepatan dan jejak memori kecil
@@ -56,7 +56,7 @@ Aplikasi desktop yang:
 
 1. **Selalu aktif** di tray, tidak mengganggu alur kerja.
 2. **Otomatis** mendeteksi lokasi dan mengambil jadwal.
-3. **Proaktif** memberi pengingat sebelum waktu sholat (bukan hanya saat masuk).
+3. **Proaktif** memberi pengingat 1 menit sebelum waktu sholat (bukan hanya saat masuk).
 4. **Akurat** menggunakan sinkronisasi waktu NTP, bukan mengandalkan jam sistem.
 
 ---
@@ -217,11 +217,11 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 
 | Status | Fitur                                    | Detail                                             |
 | ------ | ---------------------------------------- | -------------------------------------------------- |
-| ✅     | Welcome screen                           | Penjelasan singkat fungsi widget                   |
+| ✅     | Izin & selamat datang                    | Aktifkan pengingat + izin notifikasi OS (langkah 1) |
 | ✅     | Pemilihan lokasi                         | Auto (GPS/IP) atau Manual (cari kota)              |
-| ✅     | Konfigurasi audio                        | Slider volume, test bunyi azan, toggle mute       |
-| ✅     | Selesai                                  | Konfirmasi & mulai                                 |
-| ✅     | Stepper indikator progres                | Visual 4 langkah dengan checkmark                  |
+| ✅     | Konfigurasi suara                        | Slider volume, test azan, bisukan suara            |
+| ✅     | Selesai                                  | Status jelas: pengingat aktif / belum aktif        |
+| ✅     | Stepper indikator progres                | Visual 4 langkah: Pengingat → Lokasi → Suara → Selesai |
 
 ### 7.2 Lokasi & Jadwal
 
@@ -241,12 +241,37 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 | Status | Fitur                                    | Detail                                             |
 | ------ | ---------------------------------------- | -------------------------------------------------- |
 | ✅     | Background scheduler loop (30 detik)     | `run_scheduler` di dedicated tokio runtime         |
-| ✅     | Pengingat N menit sebelum sholat         | `reminder_offset_minutes` (default -5)             |
-| ✅     | Window pengingat masuk waktu sholat      | Standalone `reminder` window (340×220, glass)      |
-| ✅     | Notifikasi native OS                     | Fallback untuk layar mati / lock screen            |
-| ✅     | Suara azan (rodio)                      | `azan.mp3`, volume & mute dari config             |
+| ✅     | Pengingat 1 menit sebelum sholat         | `reminder_offset_minutes` (default -1)             |
+| ✅     | Gate izin OS + toggle pengingat          | `notifications_enabled`; tanpa izin → tidak jalan    |
+| ✅     | Window pengingat (popup glass)           | Standalone `reminder` window (340×220)             |
+| ✅     | Azan otomatis saat popup muncul          | `start_preview` di `on_remind`; mute → tanpa suara |
+| ✅     | Popup terkunci saat azan berbunyi        | `AzanPlaybackLocked`; Stop → langsung bisa tutup   |
+| ✅     | Notifikasi tray terpadu                  | Satu notifikasi OS (`id: 1001`) countdown → progress |
+| ✅     | Aksi Stop di tray & popup                | `registerActionTypes` + event `azan-stopped`       |
+| ✅     | Auto-clear setelah waktu sholat          | `clear_reminder_session`: audio, popup, notifikasi |
+| ✅     | Putar ulang                              | Tombol replay setelah stop atau jika suara dibisukan |
 | ✅     | Dedup pengingat (reminded flags)         | HashSet `tanggal:PrayerKind`, cleanup harian       |
 | ✅     | NTP time synchronization                 | `pool.ntp.org`, sync setiap 1 jam, drift correction|
+
+#### Alur pengingat (UX v2)
+
+```
+[Waktu sholat − 1 menit]
+        ↓
+  notifications_enabled + izin OS?
+    ├─ Tidak → (diam; hint kuning di tray)
+    └─ Ya → Popup + notifikasi tray + azan (jika tidak dibisukan)
+              ↓
+         Azan berbunyi?
+           ├─ Ya → Popup terkunci, progress + Stop di popup & tray
+           │         Stop / selesai → popup langsung bisa Tutup
+           └─ Tidak (mute) → Popup bisa Tutup, opsi Putar ulang
+              ↓
+        [Waktu sholat tiba] → clear otomatis (audio, popup, notifikasi)
+```
+
+**Prinsip UX:** satu istilah utama (*Pengingat Sholat*), satu notifikasi tray,
+azan otomatis (bukan tombol manual), kunci popup hanya saat audio aktif.
 
 ### 7.4 UI / UX
 
@@ -256,6 +281,8 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 | ✅     | Main window dashboard                    | Jam besar, countdown, semua jadwal, tombol aksi    |
 | ✅     | Live clock (HH:MM:SS)                    | Polling `get_current_time` via IPC                 |
 | ✅     | Countdown ke sholat berikutnya           | `findNextPrayer` + `formatCountdown`               |
+| ✅     | Status pengingat di tray                 | Hijau aktif / kuning nonaktif; ketuk → Pengaturan  |
+| ✅     | Tombol pengaturan di tray header         | Ikon Settings membuka dialog Pengaturan            |
 | ✅     | Highlight sholat aktif berikutnya        | PrayerRow dengan state `active`                    |
 | ✅     | Dark mode mengikuti sistem               | `prefers-color-scheme` media query                 |
 | ✅     | Auto-hide tray saat blur (click-out)     | `tauri://blur` listener + animasi exit             |
@@ -267,9 +294,10 @@ di depan komputer (desktop/laptop), menggunakan macOS atau Windows.
 | Status | Fitur                                    | Detail                                             |
 | ------ | ---------------------------------------- | -------------------------------------------------- |
 | ✅     | Dialog Settings (dari tray & main)       | Sticky header/footer, scrollable body              |
+| ✅     | Aktifkan pengingat sholat                | Butuh izin OS; link ke Pengaturan Sistem           |
+| ✅     | Bisukan suara azan                       | Pengingat tetap jalan tanpa bunyi                  |
+| ✅     | Volume azan slider                       | 0–100%, realtime persist                           |
 | ✅     | Ubah lokasi (Auto / Manual)              | `LocationPicker` component                         |
-| ✅     | Volume azan slider                      | 0–100%, realtime persist                           |
-| ✅     | Toggle mute                              | Switch                                                             |
 | ✅     | Toggle auto-launch                       | `tauri-plugin-autostart`                           |
 | ✅     | Hot-reload config lintas window          | `config-updated` event emit                        |
 
@@ -324,8 +352,9 @@ Fitur berikut **sengaja tidak masuk** MVP 1 atau dikeluarkan dari roadmap:
   "timezone": "Asia/Jakarta",         // string — IANA timezone
   "last_lat_long": [-6.2, 106.8],     // [f64,f64] | null — koordinat terakhir
   "volume": 0.7,                      // f32 — 0.0 sampai 1.0
-  "muted": false,                     // bool — bisukan audio
-  "reminder_offset_minutes": -5,      // i32 — menit sebelum sholat (negatif)
+  "muted": false,                     // bool — bisukan suara azan (pengingat tetap jalan)
+  "notifications_enabled": true,      // bool — pengingat otomatis (butuh izin OS)
+  "reminder_offset_minutes": -1,      // i32 — menit sebelum sholat (negatif)
   "auto_launch": true                 // bool — start saat boot
 }
 ```
@@ -407,8 +436,8 @@ Fitur berikut **sengaja tidak masuk** MVP 1 atau dikeluarkan dari roadmap:
 1. **Audio**: Hanya mendukung format yang didekode rodio (mp3, wav, ogg, flac).
 2. **Geolocation**: Auto-detect menggunakan IP (bukan GPS), akurasi terbatas
    ke tingkat kota. Tidak ada akses GPS langsung di Tauri desktop.
-3. **Notifikasi**: Bergantung pada permission sistem; jika ditolak, hanya
-   jendela pengingat + suara yang aktif.
+3. **Notifikasi**: Bergantung pada permission sistem; tanpa izin OS, pengingat
+   otomatis **tidak berjalan** (`notifications_enabled` harus false).
 4. **Transparansi**: Memerlukan `macOSPrivateApi` di macOS; di Windows
    menggunakan compositor bawaan.
 
@@ -421,7 +450,7 @@ Fitur berikut **sengaja tidak masuk** MVP 1 atau dikeluarkan dari roadmap:
 | API MyQuran down/rate-limited           | Tinggi | Sedang      | Cache jadwal disk (hari ini + besok); fallback city |
 | NTP unreachable                         | Sedang | Rendah      | Fallback ke jam OS; drift log untuk monitoring      |
 | IP-API tidak akurat (VPN/proxy)         | Sedang | Sedang      | Manual city picker sebagai alternatif               |
-| Permission notifikasi ditolak           | Sedang | Sedang      | Jendela pengingat + suara tetap aktif sebagai backup|
+| Permission notifikasi ditolak           | Sedang | Sedang      | Toggle pengingat nonaktif; arahkan ke Pengaturan Sistem |
 | Audio device tidak tersedia             | Sedang | Rendah      | Graceful degradation: skip audio, tampilkan window  |
 | OS sleep/hibernate saat waktu sholat    | Tinggi | Sedang      | Scheduler cek "reminded window" saat resume         |
 

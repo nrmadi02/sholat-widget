@@ -417,11 +417,16 @@ Hindari animasi yang memperlambat aksi inti (clock tick, countdown) — tetap in
 - Source: hitung di React dari `clock` (NTP via `useLiveClock`) dikurangi waktu sholat.
 - Update tiap detik (clock hook sudah tiap detik).
 
-### 9.3 Reminder popup (5 menit sebelum)
+### 9.3 Popup pengingat sholat (1 menit sebelum)
 
-- Trigger: event Tauri `prayer-reminder` (sudah ada di `App.tsx` + `scheduler.rs`).
-- Render: `Dialog` non-dismissable (`onInteractOutside={(e)=>e.preventDefault()}`), auto-close setelah 60s (sudah ada).
-- Aksi: "Dengar Azan" → command `test_sound` (sudah ada).
+- Trigger: scheduler `on_remind` → window `reminder` + event `prayer-reminder`.
+- Azan **otomatis** berbunyi saat popup muncul (kecuali suara dibisukan).
+- Popup **terkunci** (tanpa tombol Tutup/X) hanya saat azan sedang diputar.
+- Setelah **Stop** atau azan selesai → popup langsung bisa ditutup.
+- Saat tidak memutar: tombol **Tutup**; setelah stop/mute → **Putar ulang** + Tutup.
+- Notifikasi tray: **satu** notifikasi OS (`id: 1001`) berubah dari countdown ke progress + aksi Stop.
+- Auto-clear saat waktu sholat lewat: stop audio, tutup popup, hapus notifikasi.
+- Indikator saat playing: banner kuning *"Azan sedang diputar — tutup popup setelah Stop"*.
 
 ### 9.4 Empty / error / loading
 

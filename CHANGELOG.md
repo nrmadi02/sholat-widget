@@ -5,6 +5,26 @@ Semua perubahan penting pada proyek ini didokumentasikan di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 dan proyek ini mematuhi [Semantic Versioning](https://semver.org/lang/id/).
 
+## [0.4.0] - 2026-07-05
+
+### Diubah
+
+- Pengingat dipindah ke **1 menit** sebelum waktu sholat (dari 5 menit)
+- Flow pengingat UX: azan otomatis saat popup muncul, popup terkunci hanya saat azan berbunyi
+- Tombol **Dengar azan** diganti **Putar ulang** (setelah stop atau jika suara dibisukan)
+- Satu notifikasi tray terpadu (countdown → progress azan + aksi Stop)
+- Pengingat tidak berjalan otomatis tanpa izin OS + toggle **Aktifkan pengingat**
+- Onboarding: izin notifikasi diprioritaskan di langkah pertama
+- Pengaturan disederhanakan: Pengingat Sholat, Suara Azan, Lokasi
+
+### Ditambahkan
+
+- Status pengingat di tray widget (hijau aktif / kuning nonaktif, ketuk untuk aktifkan)
+- Tombol pengaturan di header tray popup
+- Event `azan-stopped` untuk sinkronisasi stop audio lintas UI
+- Field config `notifications_enabled`
+- Command `open_notification_settings`, `close_reminder_window`, `set_azan_playback_locked_cmd`
+
 ## [0.3.2] - 2026-07-05
 
 ### Diubah
