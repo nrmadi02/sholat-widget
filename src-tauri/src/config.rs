@@ -19,6 +19,8 @@ pub struct Config {
     pub last_lat_long: Option<(f64, f64)>,
     pub volume: f32,
     pub muted: bool,
+    #[serde(default)]
+    pub notifications_enabled: bool,
     pub reminder_offset_minutes: i32,
     pub auto_launch: bool,
     #[serde(default)]
@@ -38,7 +40,8 @@ impl Default for Config {
             last_lat_long: None,
             volume: 0.7,
             muted: false,
-            reminder_offset_minutes: -5,
+            notifications_enabled: false,
+            reminder_offset_minutes: -1,
             auto_launch: true,
             last_update_check_at: None,
             update_dismissed_version: None,
@@ -87,7 +90,8 @@ mod tests {
     fn test_default_config() {
         let cfg = Config::default();
         assert!(!cfg.onboarding_done);
-        assert_eq!(cfg.reminder_offset_minutes, -5);
+        assert_eq!(cfg.reminder_offset_minutes, -1);
+        assert!(!cfg.notifications_enabled);
         assert_eq!(cfg.volume, 0.7);
         assert!(!cfg.muted);
     }
@@ -111,11 +115,14 @@ mod tests {
             "timezone": "Asia/Jakarta",
             "volume": 0.5,
             "muted": false,
-            "reminder_offset_minutes": -5,
+            "notifications_enabled": true,
+            "reminder_offset_minutes": -1,
             "auto_launch": true
         }"#;
         let cfg: Config = serde_json::from_str(json).unwrap();
         assert_eq!(cfg.volume, 0.5);
+        assert!(cfg.notifications_enabled);
+        assert_eq!(cfg.reminder_offset_minutes, -1);
         assert!(cfg.last_lat_long.is_none());
     }
 }

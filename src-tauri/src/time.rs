@@ -73,14 +73,12 @@ pub fn parse_time(s: &str) -> Option<chrono::NaiveTime> {
     chrono::NaiveTime::parse_from_str(s, "%H:%M").ok()
 }
 
-pub fn is_in_reminder_window(
+fn prayer_datetime(
     now: DateTime<Tz>,
     prayer_hour: u32,
     prayer_min: u32,
-    offset_minutes: i32,
-) -> bool {
-    let prayer = now
-        .timezone()
+) -> Option<DateTime<Tz>> {
+    now.timezone()
         .with_ymd_and_hms(
             now.year(),
             now.month(),
@@ -89,13 +87,34 @@ pub fn is_in_reminder_window(
             prayer_min,
             0,
         )
-        .single();
-    if let Some(prayer_dt) = prayer {
+        .single()
+}
+
+pub fn is_in_reminder_window(
+    now: DateTime<Tz>,
+    prayer_hour: u32,
+    prayer_min: u32,
+    offset_minutes: i32,
+) -> bool {
+    if let Some(prayer_dt) = prayer_datetime(now, prayer_hour, prayer_min) {
         let reminder = prayer_dt + chrono::Duration::minutes(offset_minutes as i64);
         now >= reminder && now < prayer_dt
     } else {
         false
     }
+}
+
+pub fn is_past_prayer_time(now: DateTime<Tz>, prayer_hour: u32, prayer_min: u32) -> bool {
+    prayer_datetime(now, prayer_hour, prayer_min)
+        .map(|prayer_dt| now >= prayer_dt)
+        .unwrap_or(false)
+}
+
+pub fn seconds_until_prayer(now: DateTime<Tz>, prayer_hour: u32, prayer_min: u32) -> Option<i64> {
+    prayer_datetime(now, prayer_hour, prayer_min).map(|prayer_dt| {
+        let diff = prayer_dt - now;
+        diff.num_seconds().max(0)
+    })
 }
 
 #[cfg(test)]
@@ -137,17 +156,20 @@ mod tests {
     fn test_is_in_reminder_window_true() {
         let tz: Tz = "Asia/Jakarta".parse().unwrap();
         let now = tz
-            .with_ymd_and_hms(2026, 6, 23, 12, 10, 0)
+            .with_ymd_and_hms(2026, 6, 23, 12, 14, 0)
             .single()
             .unwrap();
-        assert!(is_in_reminder_window(now, 12, 15, -5));
+        assert!(is_in_reminder_window(now, 12, 15, -1));
     }
 
     #[test]
     fn test_is_in_reminder_window_false_before() {
         let tz: Tz = "Asia/Jakarta".parse().unwrap();
-        let now = tz.with_ymd_and_hms(2026, 6, 23, 12, 9, 0).single().unwrap();
-        assert!(!is_in_reminder_window(now, 12, 15, -5));
+        let now = tz
+            .with_ymd_and_hms(2026, 6, 23, 12, 13, 0)
+            .single()
+            .unwrap();
+        assert!(!is_in_reminder_window(now, 12, 15, -1));
     }
 
     #[test]
@@ -157,7 +179,32 @@ mod tests {
             .with_ymd_and_hms(2026, 6, 23, 12, 16, 0)
             .single()
             .unwrap();
-        assert!(!is_in_reminder_window(now, 12, 15, -5));
+        assert!(!is_in_reminder_window(now, 12, 15, -1));
+    }
+
+    #[test]
+    fn test_is_past_prayer_time() {
+        let tz: Tz = "Asia/Jakarta".parse().unwrap();
+        let before = tz
+            .with_ymd_and_hms(2026, 6, 23, 12, 14, 59)
+            .single()
+            .unwrap();
+        let after = tz
+            .with_ymd_and_hms(2026, 6, 23, 12, 15, 0)
+            .single()
+            .unwrap();
+        assert!(!is_past_prayer_time(before, 12, 15));
+        assert!(is_past_prayer_time(after, 12, 15));
+    }
+
+    #[test]
+    fn test_seconds_until_prayer() {
+        let tz: Tz = "Asia/Jakarta".parse().unwrap();
+        let now = tz
+            .with_ymd_and_hms(2026, 6, 23, 12, 14, 10)
+            .single()
+            .unwrap();
+        assert_eq!(seconds_until_prayer(now, 12, 15), Some(50));
     }
 
     #[test]

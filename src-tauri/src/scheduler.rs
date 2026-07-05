@@ -1,9 +1,8 @@
-use crate::audio::AudioPlayer;
 use crate::cache::CacheStore;
 use crate::config::load_config;
 use crate::models::{JadwalEntry, PrayerKind};
 use crate::schedule;
-use crate::time::{is_in_reminder_window, TimeService};
+use crate::time::{is_in_reminder_window, is_past_prayer_time, TimeService};
 use chrono::NaiveDate;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -32,15 +31,15 @@ pub fn parse_hhmm(s: &str) -> Option<(u32, u32)> {
 pub async fn run_scheduler(
     time_service: Arc<TimeService>,
     cache: Arc<CacheStore>,
-    on_remind: Arc<dyn Fn(PrayerKind) + Send + Sync>,
+    on_remind: Arc<dyn Fn(PrayerKind, u32, u32) + Send + Sync>,
+    on_clear: Arc<dyn Fn() + Send + Sync>,
+    active_reminder: Arc<dyn Fn() -> Option<(u32, u32)> + Send + Sync>,
 ) {
-    let audio = AudioPlayer::new();
     let mut last_date: Option<NaiveDate> = None;
 
     loop {
         let cfg = load_config();
         time_service.update_timezone(&cfg.timezone);
-        audio.sync_from_config();
 
         let now = time_service.now_local();
         let today = now.date_naive();
@@ -54,18 +53,25 @@ pub async fn run_scheduler(
             let _ = schedule::refresh_schedule(&cache).await;
         }
 
-        if let Some(entry) = cache.get_schedule_for_date(&today_key) {
-            let offset = cfg.reminder_offset_minutes;
+        if let Some((h, m)) = active_reminder() {
+            if is_past_prayer_time(now, h, m) {
+                on_clear();
+            }
+        }
 
-            for (kind, time_str) in extract_prayers(&entry) {
-                if let Some((h, m)) = parse_hhmm(time_str) {
-                    let already = cache.is_reminded(today, kind);
-                    let in_window = is_in_reminder_window(now, h, m, offset);
+        if cfg.notifications_enabled {
+            if let Some(entry) = cache.get_schedule_for_date(&today_key) {
+                let offset = cfg.reminder_offset_minutes;
 
-                    if in_window && !already {
-                        let _ = audio.play_azan();
-                        on_remind(kind);
-                        let _ = cache.mark_reminded(today, kind);
+                for (kind, time_str) in extract_prayers(&entry) {
+                    if let Some((h, m)) = parse_hhmm(time_str) {
+                        let already = cache.is_reminded(today, kind);
+                        let in_window = is_in_reminder_window(now, h, m, offset);
+
+                        if in_window && !already {
+                            on_remind(kind, h, m);
+                            let _ = cache.mark_reminded(today, kind);
+                        }
                     }
                 }
             }

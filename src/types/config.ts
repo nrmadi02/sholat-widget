@@ -7,6 +7,7 @@ export interface AppConfig {
   last_lat_long: [number, number] | null;
   volume: number;
   muted: boolean;
+  notifications_enabled: boolean;
   reminder_offset_minutes: number;
   auto_launch: boolean;
   last_update_check_at?: number | null;
