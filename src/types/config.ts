@@ -1,5 +1,7 @@
 export interface AppConfig {
   onboarding_done: boolean;
+  /** Set by backend on complete_onboarding; bump CURRENT_ONBOARDING_SCHEMA_VERSION in Rust when flow changes. */
+  onboarding_schema_version?: number;
   location_mode: "Auto" | "ManualCity";
   city_id: string;
   city_name: string;

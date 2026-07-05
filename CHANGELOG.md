@@ -9,6 +9,8 @@ dan proyek ini mematuhi [Semantic Versioning](https://semver.org/lang/id/).
 
 ### Diubah
 
+- Onboarding diulang otomatis untuk pengguna lama saat `onboarding_schema_version` di config lebih rendah dari versi schema saat ini (schema v1: izin notifikasi + flow pengingat baru)
+
 - Pengingat dipindah ke **1 menit** sebelum waktu sholat (dari 5 menit)
 - Flow pengingat UX: azan otomatis saat popup muncul, popup terkunci hanya saat azan berbunyi
 - Tombol **Dengar azan** diganti **Putar ulang** (setelah stop atau jika suara dibisukan)

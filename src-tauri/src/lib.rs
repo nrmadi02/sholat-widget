@@ -13,7 +13,7 @@ mod tray_position;
 mod updater;
 
 use cache::CacheStore;
-use config::{load_config, save_config, Config};
+use config::{load_config, save_config, Config, CURRENT_ONBOARDING_SCHEMA_VERSION};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::path::BaseDirectory;
@@ -245,6 +245,7 @@ fn get_current_time() -> String {
 async fn complete_onboarding(config: Config, app: tauri::AppHandle) -> Result<Config, String> {
     let mut cfg = config;
     cfg.onboarding_done = true;
+    cfg.onboarding_schema_version = CURRENT_ONBOARDING_SCHEMA_VERSION;
     save_config(&cfg).map_err(|e| e.to_string())?;
     if let Err(e) = location::sync_config_location().await {
         log::warn!("location sync failed during onboarding: {e}");

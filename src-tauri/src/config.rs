@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+/// Bump when onboarding flow changes enough to require users to run it again.
+/// Patch releases (0.4.0 → 0.4.1) usually keep this unchanged.
+pub const CURRENT_ONBOARDING_SCHEMA_VERSION: u32 = 1;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LocationMode {
     Auto,
@@ -11,6 +15,8 @@ pub enum LocationMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub onboarding_done: bool,
+    #[serde(default)]
+    pub onboarding_schema_version: u32,
     pub location_mode: LocationMode,
     pub city_id: String,
     pub city_name: String,
@@ -33,6 +39,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             onboarding_done: false,
+            onboarding_schema_version: 0,
             location_mode: LocationMode::Auto,
             city_id: "eda80a3d5b344bc40f3bc04f65b7a357".to_string(),
             city_name: "JAKARTA".to_string(),
@@ -61,11 +68,23 @@ pub fn config_path() -> PathBuf {
     config_dir().join("config.json")
 }
 
+pub fn needs_onboarding_refresh(cfg: &Config) -> bool {
+    cfg.onboarding_done && cfg.onboarding_schema_version < CURRENT_ONBOARDING_SCHEMA_VERSION
+}
+
+fn apply_onboarding_schema_migration(mut cfg: Config) -> Config {
+    if needs_onboarding_refresh(&cfg) {
+        cfg.onboarding_done = false;
+        let _ = save_config(&cfg);
+    }
+    cfg
+}
+
 pub fn load_config() -> Config {
     let path = config_path();
     match fs::read_to_string(&path) {
         Ok(content) => match serde_json::from_str::<Config>(&content) {
-            Ok(cfg) => cfg,
+            Ok(cfg) => apply_onboarding_schema_migration(cfg),
             Err(_) => {
                 let _ = fs::rename(&path, config_dir().join("config.corrupt.json"));
                 Config::default()
@@ -103,6 +122,54 @@ mod tests {
         let back: Config = serde_json::from_str(&json).unwrap();
         assert_eq!(cfg.onboarding_done, back.onboarding_done);
         assert_eq!(cfg.city_id, back.city_id);
+    }
+
+    #[test]
+    fn test_needs_onboarding_refresh_when_schema_stale() {
+        let cfg = Config {
+            onboarding_done: true,
+            onboarding_schema_version: 0,
+            ..Config::default()
+        };
+        assert!(needs_onboarding_refresh(&cfg));
+    }
+
+    #[test]
+    fn test_needs_onboarding_refresh_when_schema_current() {
+        let cfg = Config {
+            onboarding_done: true,
+            onboarding_schema_version: CURRENT_ONBOARDING_SCHEMA_VERSION,
+            ..Config::default()
+        };
+        assert!(!needs_onboarding_refresh(&cfg));
+    }
+
+    #[test]
+    fn test_needs_onboarding_refresh_skips_incomplete_onboarding() {
+        let cfg = Config {
+            onboarding_done: false,
+            onboarding_schema_version: 0,
+            ..Config::default()
+        };
+        assert!(!needs_onboarding_refresh(&cfg));
+    }
+
+    #[test]
+    fn test_deserialize_legacy_config_without_schema_version() {
+        let json = r#"{
+            "onboarding_done": true,
+            "location_mode": "Auto",
+            "city_id": "eda80a3d5b344bc40f3bc04f65b7a357",
+            "city_name": "JAKARTA",
+            "timezone": "Asia/Jakarta",
+            "volume": 0.7,
+            "muted": false,
+            "reminder_offset_minutes": -1,
+            "auto_launch": true
+        }"#;
+        let cfg: Config = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.onboarding_schema_version, 0);
+        assert!(needs_onboarding_refresh(&cfg));
     }
 
     #[test]
