@@ -163,12 +163,6 @@ export function ReminderWindow() {
       } else if (!ctx.azan_playing && playingRef.current) {
         unlockPopupUi();
       }
-
-      if (ctx.seconds_until_prayer <= 0) {
-        await invoke("clear_reminder_session_cmd");
-        await clearPrayerReminderNotification();
-        resetSoundUi();
-      }
     } catch {
       // ignore transient errors
     }
@@ -274,7 +268,9 @@ export function ReminderWindow() {
           <span className="font-semibold text-foreground">{prayer}</span>{" "}
           {secondsLeft !== null && secondsLeft > 0
             ? `dalam ${secondsLeft} detik.`
-            : "segera tiba."}
+            : secondsLeft === 0
+              ? "sudah tiba."
+              : "segera tiba."}
         </p>
 
         {playing && (

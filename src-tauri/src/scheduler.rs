@@ -2,7 +2,7 @@ use crate::cache::CacheStore;
 use crate::config::load_config;
 use crate::models::{JadwalEntry, PrayerKind};
 use crate::schedule;
-use crate::time::{is_in_reminder_window, is_past_prayer_time, TimeService};
+use crate::time::{is_in_reminder_window, TimeService};
 use chrono::NaiveDate;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -32,8 +32,6 @@ pub async fn run_scheduler(
     time_service: Arc<TimeService>,
     cache: Arc<CacheStore>,
     on_remind: Arc<dyn Fn(PrayerKind, u32, u32) + Send + Sync>,
-    on_clear: Arc<dyn Fn() + Send + Sync>,
-    active_reminder: Arc<dyn Fn() -> Option<(u32, u32)> + Send + Sync>,
 ) {
     let mut last_date: Option<NaiveDate> = None;
 
@@ -51,12 +49,6 @@ pub async fn run_scheduler(
             let _ = schedule::refresh_schedule(&cache).await;
         } else if schedule::needs_refresh(&cache, &load_config().city_id, &today_key) {
             let _ = schedule::refresh_schedule(&cache).await;
-        }
-
-        if let Some((h, m)) = active_reminder() {
-            if is_past_prayer_time(now, h, m) {
-                on_clear();
-            }
         }
 
         if cfg.notifications_enabled {

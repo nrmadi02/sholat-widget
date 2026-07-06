@@ -5,6 +5,16 @@ Semua perubahan penting pada proyek ini didokumentasikan di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 dan proyek ini mematuhi [Semantic Versioning](https://semver.org/lang/id/).
 
+## [0.4.1] - 2026-07-06
+
+### Diperbaiki
+
+- Popup pengingat tidak lagi ditutup otomatis saat waktu sholat tiba — sesi pengingat dan notifikasi tray tetap sampai pengguna menutup atau sholat berikutnya
+
+### Diubah
+
+- Teks popup saat countdown mencapai 0: **sudah tiba.** (bukan "segera tiba.")
+
 ## [0.4.0] - 2026-07-05
 
 ### Diubah

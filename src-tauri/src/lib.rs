@@ -563,22 +563,12 @@ pub fn run() {
                 let _ = remind_app.emit("prayer-reminder", kind.label());
             });
 
-            let clear_app = app_handle.clone();
-            let on_clear = Arc::new(move || clear_reminder_session(&clear_app));
-
-            let active_app = app_handle.clone();
-            let active_reminder = Arc::new(move || {
-                get_active_reminder(&active_app).map(|r| (r.prayer_hour, r.prayer_min))
-            });
-
             std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new().expect("scheduler runtime");
                 rt.block_on(scheduler::run_scheduler(
                     ts_clone,
                     cache,
                     on_remind,
-                    on_clear,
-                    active_reminder,
                 ));
             });
 
