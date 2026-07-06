@@ -4,7 +4,7 @@ Aplikasi desktop pengingat waktu sholat untuk Muslim di Indonesia. Berjalan di *
 
 Dibangun dengan **Tauri v2** (Rust) + **React 19** (TypeScript). Ringan, native, dan mendukung auto-update.
 
-**Versi saat ini:** `0.4.0`
+**Versi saat ini:** `0.4.2`
 
 ## Fitur
 

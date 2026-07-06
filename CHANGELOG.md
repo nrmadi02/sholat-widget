@@ -5,6 +5,13 @@ Semua perubahan penting pada proyek ini didokumentasikan di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 dan proyek ini mematuhi [Semantic Versioning](https://semver.org/lang/id/).
 
+## [0.4.2] - 2026-07-06
+
+### Diubah
+
+- Popup pengingat menyesuaikan tinggi jendela secara dinamis (220px idle, 248px saat azan diputar)
+- Layout UI pengingat saat azan: pesan status dipindah ke dalam kartu progress dengan latar amber halus
+
 ## [0.4.1] - 2026-07-06
 
 ### Diperbaiki

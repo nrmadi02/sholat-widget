@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { RotateCcw, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -23,6 +25,10 @@ interface ReminderContext {
   azan_playing: boolean;
   azan_started_at_ms: number | null;
 }
+
+const REMINDER_WIDTH = 340;
+const REMINDER_HEIGHT_IDLE = 220;
+const REMINDER_HEIGHT_PLAYING = 248;
 
 export function ReminderWindow() {
   const [prayer, setPrayer] = useState<string | null>(null);
@@ -218,6 +224,15 @@ export function ReminderWindow() {
     };
   }, [refreshContext, stopAzan, clearSoundTimer, unlockPopupUi]);
 
+  useEffect(() => {
+    void getCurrentWindow().setSize(
+      new LogicalSize(
+        REMINDER_WIDTH,
+        playing ? REMINDER_HEIGHT_PLAYING : REMINDER_HEIGHT_IDLE,
+      ),
+    );
+  }, [playing]);
+
   const replayAzan = async () => {
     if (playingRef.current || !prayer) return;
     playbackSyncedRef.current = false;
@@ -228,9 +243,9 @@ export function ReminderWindow() {
   const emoji = prayer ? (PRAYER_ICONS[prayer] ?? "🕌") : "🕌";
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center p-3">
+    <div className="h-screen w-screen">
       <div
-        className="glass relative flex w-full flex-col overflow-hidden rounded-2xl shadow-2xl"
+        className="glass relative flex h-full w-full flex-col overflow-hidden rounded-2xl shadow-2xl"
         style={{ backdropFilter: "blur(24px)" }}
       >
         {!playing && (
@@ -257,13 +272,7 @@ export function ReminderWindow() {
           </div>
         </div>
 
-        {playing && (
-          <p className="mx-5 mb-2 rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-200">
-            Azan sedang diputar — tutup popup setelah Stop
-          </p>
-        )}
-
-        <p className="px-5 pb-4 text-sm text-muted-foreground">
+        <p className="px-5 pb-3 text-sm text-muted-foreground">
           Waktu sholat{" "}
           <span className="font-semibold text-foreground">{prayer}</span>{" "}
           {secondsLeft !== null && secondsLeft > 0
@@ -274,11 +283,14 @@ export function ReminderWindow() {
         </p>
 
         {playing && (
-          <div className="mx-5 mb-3 flex flex-col gap-2 rounded-lg border border-white/20 bg-white/15 px-3 py-2.5">
+          <div className="mx-5 mb-3 flex flex-col gap-2 rounded-lg border border-white/20 bg-amber-500/10 px-3 py-2.5">
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+              Azan sedang diputar — tutup popup setelah Stop
+            </p>
             <Progress value={soundProgress} className="h-1.5" />
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
-                Memutar azan — {Math.round(soundProgress)}%
+                {Math.round(soundProgress)}%
               </p>
               <Button
                 variant="ghost"
